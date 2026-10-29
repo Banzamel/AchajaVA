@@ -264,6 +264,38 @@ class Bubble:
         self.c.clipboard_append(self.copy_text)
 
 
+class SendButton:
+    """Okragly przycisk wysylania z papierowym samolotem; przygaszony, gdy pole jest puste."""
+
+    def __init__(self, app, parent, size, command):
+        self.app, self.size, self.command = app, size, command
+        self.c = app.tk.Canvas(parent, width=size, height=size, highlightthickness=0, borderwidth=0, cursor="hand2")
+        self.active = self.hover = False
+        self.c.bind("<Enter>", lambda e: self.set(hover=True))
+        self.c.bind("<Leave>", lambda e: self.set(hover=False))
+        self.c.bind("<Button-1>", lambda e: self.active and self.command())
+        self.paint()
+
+    def set(self, active=None, hover=None):
+        if active is not None:
+            self.active = active
+        if hover is not None:
+            self.hover = hover
+        self.paint()
+
+    def paint(self):
+        p, c, s = self.app.theme.p, self.c, self.size
+        c.configure(background=p["surface"])
+        c.delete("all")
+        if self.active:
+            fill, ink = (p["accent_hover"] if self.hover else p["accent"]), p["on_accent"]
+        else:
+            fill, ink = p["surface2"], p["faint"]
+        c.create_oval(1, 1, s - 2, s - 2, fill=fill, outline="")
+        pts = [(0.30, 0.27), (0.76, 0.50), (0.30, 0.73), (0.37, 0.53), (0.55, 0.50), (0.37, 0.47)]
+        c.create_polygon([v * s for pt in pts for v in pt], fill=ink, outline="")
+
+
 class PopupMenu:
     """Menu aplikacji: duze, czytelne pozycje z ikonami w kolorach motywu (menu systemowe Windows jest male
     i ignoruje ciemny motyw). items: (ikona, opis, funkcja) albo None jako separator."""
@@ -480,12 +512,12 @@ class App:
         self.chat.bind("<MouseWheel>", self.on_chat_wheel)
 
         self.entry_card = card
-        # przycisk tej samej wysokosci co pole wpisywania
-        ttk.Button(card, text="➤", style="Accent.TButton", width=3, command=self.send_text).pack(
-            side="right", fill="y")
+        self.send_btn = SendButton(self, card, px(38), self.send_text)  # okragly, jak w komunikatorach
+        self.send_btn.c.pack(side="right", anchor="s")
         self.entry = tk.Text(card, height=2, wrap="word", font=(FONT, 10), padx=px(6), pady=px(4))
         self.entry.pack(side="left", fill="both", expand=True, padx=(0, px(8)))
         self.entry.bind("<Return>", self.on_enter)
+        self.entry.bind("<KeyRelease>", lambda e: self.send_btn.set(active=self.entry_text() != ""))
         self.entry.bind("<FocusIn>", lambda e: (self.placeholder(False), card.state(["focus"])))
         self.entry.bind("<FocusOut>", lambda e: (self.placeholder(True), card.state(["!focus"])))
 
@@ -595,6 +627,7 @@ class App:
         p = th.p
         th.text(self.chat, surface=False)
         th.text(self.entry)
+        self.send_btn.paint()
         th.text(self.agent_text)
         th.text(self.term_text)
         th.text(self.log_text)
@@ -635,13 +668,15 @@ class App:
         self.send_text()
         return "break"
 
+    def entry_text(self):
+        return "" if self.entry.tag_ranges("ph") else self.entry.get("1.0", "end").strip()
+
     def send_text(self):
-        if self.entry.tag_ranges("ph"):
-            return
-        text = self.entry.get("1.0", "end").strip()
+        text = self.entry_text()
         if not text:
             return
         self.entry.delete("1.0", "end")
+        self.send_btn.set(active=False)
         self.request(("type", text))
 
     def parse_chat_line(self, line):

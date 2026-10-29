@@ -118,6 +118,7 @@ def split_list(value):
 
 
 LANG_NAMES = {"pl": "polski", "en": "English"}
+SECTION_ICONS = {"general": "⚙", "voice": "🎙", "agents": "📁", "mail": "✉", "rules": "☷", "ha": "⌂"}
 
 
 def speech_model_missing(lang):
@@ -261,7 +262,7 @@ def restart_mail(cfg):
 
 TEXT = {
     "pl": {
-        "title": "Achaja — ustawienia", "back": "Wstecz", "next": "Dalej", "save": "Zapisz", "cancel": "Anuluj", "close_nosave": "Zamknij bez zapisu", "lang_missing": "Brak modelu mowy dla tego języka ({}) — Achaja nie zapisze tej zmiany. Uruchom instalator ponownie i wybierz ten język.",
+        "title": "Achaja — ustawienia", "back": "Wstecz", "next": "Dalej", "save": "Zapisz", "cancel": "Anuluj", "close": "Zamknij", "title_short": "Ustawienia", "save_changes": "Zapisz zmiany", "lang_title": "Język Achai", "lang_sub": "Język rozmowy, słowa sterujące (wybudzenie, „wykonaj”) i głos. Zmiana zapisuje się od razu, a nasłuch uruchamia się ponownie.", "lang_saved": "✓ Zapisano język — okno ustawień zmieni język po ponownym otwarciu", "lang_missing": "Brak modelu mowy dla tego języka ({}) — Achaja nie zapisze tej zmiany. Uruchom instalator ponownie i wybierz ten język.",
         "theme": "Wygląd okien", "theme_auto": "jak w Windows", "theme_light": "jasny", "theme_dark": "ciemny",
         "step": "Krok {} z {}",
         "general": "Ogólne", "general_sub": "Język asystentki oraz model, na którym pracuje Achaja.",
@@ -296,7 +297,7 @@ TEXT = {
         "sum_mic": "mikrofon: {}", "sum_out": "wyjście: {}", "sum_cast": "głośnik: {}", "off": "wyłączony",
     },
     "en": {
-        "title": "Achaja — settings", "back": "Back", "next": "Next", "save": "Save", "cancel": "Cancel", "close_nosave": "Close without saving", "lang_missing": "No speech model for this language ({}) — Achaja will not save this change. Run the installer again and choose this language.",
+        "title": "Achaja — settings", "back": "Back", "next": "Next", "save": "Save", "cancel": "Cancel", "close": "Close", "title_short": "Settings", "save_changes": "Save changes", "lang_title": "Achaja's language", "lang_sub": "Conversation language, control words (wake word, “execute”) and voice. The change is saved at once and the listener restarts.", "lang_saved": "✓ Language saved — the settings window switches language when reopened", "lang_missing": "No speech model for this language ({}) — Achaja will not save this change. Run the installer again and choose this language.",
         "theme": "Window theme", "theme_auto": "same as Windows", "theme_light": "light", "theme_dark": "dark",
         "step": "Step {} of {}",
         "general": "General", "general_sub": "The assistant's language and the model Achaja runs on.",
@@ -357,7 +358,135 @@ class Wizard:
             root.iconbitmap(str(icon))
         self.theme = theme.Theme(root, self.state["theme"])
         px = self.theme.px
+        self.vars()
+        self.pages = [("general", self.page_general)]
+        if "voice" in modules:
+            self.pages.append(("voice", self.page_voice))
+        if "agents" in modules:
+            self.pages.append(("agents", self.page_agents))
+        if "mail" in modules:
+            self.pages += [("mail", self.page_mail), ("rules", self.page_rules)]
+        if "ha" in modules:
+            self.pages.append(("ha", self.page_ha))
+        self.index = 0
+        if self.editing:
+            self.build_settings()
+        else:
+            self.pages.append(("summary", self.page_summary))
+            self.build_wizard()
+        self.show()
+        root.deiconify()
+        root.after(50, lambda: self.theme.titlebar(root))
 
+    def build_settings(self):
+        """Zmiana ustawien (z menu Achai): sekcje z ikonami po lewej, kazda zapisywana osobno; jezyk w osobnym oknie."""
+        tk, ttk, root, p, px = self.tk, self.ttk, self.root, self.theme.p, self.theme.px
+        root.geometry("860x620")
+        root.minsize(760, 560)
+        side = tk.Frame(root, background=p["surface"], padx=px(8), pady=px(14))
+        side.pack(side="left", fill="y")
+        tk.Label(side, text=self.t["title_short"], font=(theme.FONT_BOLD, 14), background=p["surface"],
+                 foreground=p["text"], anchor="w").pack(fill="x", padx=px(10), pady=(0, px(12)))
+        self.side_rows = []
+        for i, (key, _) in enumerate(self.pages):
+            self.side_rows.append(self.side_item(side, SECTION_ICONS.get(key, "•"), self.t[key],
+                                                 lambda i=i: self.go(i)))
+        tk.Frame(side, height=1, background=p["border"]).pack(fill="x", padx=px(10), pady=px(10))
+        self.lang_row = self.side_item(side, "🌐", self.lang_label(), self.language_dialog)
+
+        right = ttk.Frame(root)
+        right.pack(side="left", fill="both", expand=True)
+        head = ttk.Frame(right, padding=(px(28), px(20), px(28), px(4)))
+        head.pack(fill="x")
+        self.title_lbl = ttk.Label(head, style="Title.TLabel")
+        self.title_lbl.pack(anchor="w")
+        self.sub_lbl = ttk.Label(head, style="Sub.TLabel", wraplength=px(540), justify="left")
+        self.sub_lbl.pack(anchor="w", pady=(px(2), 0))
+        nav = ttk.Frame(right, padding=(px(28), px(12), px(28), px(18)))
+        nav.pack(side="bottom", fill="x")
+        ttk.Button(nav, text=self.t["save_changes"], style="Accent.TButton", command=self.save).pack(side="right")
+        self.status_lbl = ttk.Label(nav, style="Muted.TLabel")
+        self.status_lbl.pack(side="right", padx=(0, px(12)))
+        ttk.Button(nav, text=self.t["close"], command=root.destroy).pack(side="left")
+        root.bind("<Escape>", lambda e: root.destroy())
+        self.body = ttk.Frame(right, padding=(px(28), px(14), px(28), 0))
+        self.body.pack(fill="both", expand=True)
+
+    def side_item(self, parent, icon, label, command):
+        """Pozycja bocznego menu ustawien: ikona + nazwa, podswietlenie pod kursorem i dla biezacej sekcji."""
+        tk, p, px = self.tk, self.theme.p, self.theme.px
+        row = tk.Frame(parent, background=p["surface"], cursor="hand2")
+        row.pack(fill="x", pady=1)
+        parts = [row, tk.Label(row, text=icon, width=2, font=(theme.FONT, 13), background=p["surface"],
+                               foreground=p["accent_text"]),
+                 tk.Label(row, text=label, anchor="w", font=(theme.FONT, 10), background=p["surface"],
+                          foreground=p["text"])]
+        parts[1].pack(side="left", padx=(px(8), px(6)), pady=px(7))
+        parts[2].pack(side="left", fill="x", expand=True, padx=(0, px(14)))
+        item = {"parts": parts, "selected": False}
+
+        def paint(hover):
+            color = p["accent_soft"] if item["selected"] else p["hover"] if hover else p["surface"]
+            for w in parts:
+                w.configure(background=color)
+        item["paint"] = paint
+        for w in parts:
+            w.bind("<Enter>", lambda e: paint(True))
+            w.bind("<Leave>", lambda e: paint(False))
+            w.bind("<Button-1>", lambda e: command())
+        return item
+
+    def lang_label(self):
+        code = self.v["language"].get()
+        return f"{self.t['language']}: {LANG_NAMES.get(code, code)}"
+
+    def language_dialog(self):
+        """Osobne okno zmiany jezyka - zapisuje od razu (nasluch Achai sam sie wtedy uruchamia ponownie)."""
+        tk, ttk, px = self.tk, self.ttk, self.theme.px
+        win = tk.Toplevel(self.root)
+        win.title(self.t["language"])
+        win.configure(background=self.theme.p["bg"])
+        win.transient(self.root)
+        win.resizable(False, False)
+        frame = ttk.Frame(win, padding=px(22))
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=self.t["lang_title"], style="Title.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+        ttk.Label(frame, text=self.t["lang_sub"], style="Sub.TLabel", wraplength=px(380), justify="left").grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(px(2), px(14)))
+        shown = tk.StringVar(value=LANG_NAMES.get(self.v["language"].get(), self.v["language"].get()))
+        box = ttk.Combobox(frame, textvariable=shown, values=list(LANG_NAMES.values()), state="readonly", width=24)
+        box.grid(row=2, column=0, columnspan=2, sticky="we")
+        note = ttk.Label(frame, style="Muted.TLabel", wraplength=px(380), justify="left")
+        note.grid(row=3, column=0, columnspan=2, sticky="w", pady=(px(8), 0))
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=4, column=0, columnspan=2, sticky="e", pady=(px(18), 0))
+
+        def code():
+            return next(c for c, n in LANG_NAMES.items() if n == shown.get())
+
+        def check(*_):
+            missing = speech_model_missing(code())
+            note.configure(text=self.t["lang_missing"].format(missing) if missing else "")
+            ok.state(["disabled"] if missing else ["!disabled"])
+
+        def apply():
+            self.v["language"].set(code())
+            if self.save():
+                self.lang_row["parts"][2].configure(text=self.lang_label())
+                self.status_lbl.configure(text=self.t["lang_saved"])
+                win.destroy()
+        ttk.Button(buttons, text=self.t["cancel"], command=win.destroy).pack(side="left", padx=(0, px(8)))
+        ok = ttk.Button(buttons, text=self.t["save"], style="Accent.TButton", command=apply)
+        ok.pack(side="left")
+        box.bind("<<ComboboxSelected>>", check)
+        check()
+        win.bind("<Escape>", lambda e: win.destroy())
+        win.after(50, lambda: self.theme.titlebar(win))
+        win.grab_set()
+
+    def build_wizard(self):
+        """Pierwsze uruchomienie (instalator): kroki po kolei z podsumowaniem na koncu."""
+        tk, ttk, root, px = self.tk, self.ttk, self.root, self.theme.px
         head = ttk.Frame(root, padding=(px(24), px(18), px(24), px(6)))
         head.pack(fill="x")
         logo = ROOT / "setup" / "assets" / "achaja.png"
@@ -380,35 +509,14 @@ class Wizard:
 
         nav = ttk.Frame(root, padding=(px(24), px(12), px(24), px(18)))
         nav.pack(side="bottom", fill="x")
-        if self.editing:
-            ttk.Button(nav, text=self.t["save"], style="Accent.TButton", command=self.save).pack(side="right")
-        self.next_btn = ttk.Button(nav, text=self.t["next"], style="TButton" if self.editing else "Accent.TButton",
-                                   command=self.next)
-        self.next_btn.pack(side="right", padx=(0, px(8)) if self.editing else 0)
+        self.next_btn = ttk.Button(nav, text=self.t["next"], style="Accent.TButton", command=self.next)
+        self.next_btn.pack(side="right")
         self.back_btn = ttk.Button(nav, text=self.t["back"], command=self.back)
         self.back_btn.pack(side="right", padx=(0, px(8)))
-        ttk.Button(nav, text=self.t["close_nosave" if self.editing else "cancel"], command=root.destroy).pack(
-            side="left")
-        root.bind("<Escape>", lambda e: root.destroy())
+        ttk.Button(nav, text=self.t["cancel"], command=root.destroy).pack(side="left")
 
         self.body = ttk.Frame(root, padding=(px(24), px(16), px(24), 0))
         self.body.pack(fill="both", expand=True)
-
-        self.vars()
-        self.pages = [("general", self.page_general)]
-        if "voice" in modules:
-            self.pages.append(("voice", self.page_voice))
-        if "agents" in modules:
-            self.pages.append(("agents", self.page_agents))
-        if "mail" in modules:
-            self.pages += [("mail", self.page_mail), ("rules", self.page_rules)]
-        if "ha" in modules:
-            self.pages.append(("ha", self.page_ha))
-        self.pages.append(("summary", self.page_summary))
-        self.index = 0
-        self.show()
-        root.deiconify()
-        root.after(50, lambda: self.theme.titlebar(root))
 
     # --- dane ---
     def vars(self):
@@ -458,15 +566,16 @@ class Wizard:
         key, build = self.pages[self.index]
         self.title_lbl.configure(text=self.t[key])
         self.sub_lbl.configure(text=self.t[f"{key}_sub"])
-        self.step_lbl.configure(text=self.t["step"].format(self.index + 1, len(self.pages)))
-        self.back_btn.state(["disabled"] if self.index == 0 else ["!disabled"])
-        if self.editing:  # zapis jest osobnym przyciskiem - na ostatnim kroku nie ma juz "Dalej"
-            self.next_btn.state(["disabled"] if key == "summary" else ["!disabled"])
-            self.next_btn.configure(text=self.t["next"] + "  ›")
+        if self.editing:
+            for i, item in enumerate(self.side_rows):
+                item["selected"] = i == self.index
+                item["paint"](False)
         else:
+            self.step_lbl.configure(text=self.t["step"].format(self.index + 1, len(self.pages)))
+            self.back_btn.state(["disabled"] if self.index == 0 else ["!disabled"])
             self.next_btn.configure(text=self.t["save"] if key == "summary" else self.t["next"] + "  ›")
-        self.draw_progress()
-        self.draw_chips()
+            self.draw_progress()
+            self.draw_chips()
         page = self.ttk.Frame(self.body)  # swieza ramka: ustawienia siatki nie przechodza miedzy stronami
         page.pack(fill="both", expand=True)
         build(page)
@@ -500,6 +609,10 @@ class Wizard:
     def change_theme(self, *_):
         self.collect_page()
         if self.theme.apply(self.theme_name()):
+            if self.editing:  # boczne menu to zwykle widzety tk - budujemy je od nowa w nowych kolorach
+                for w in self.root.winfo_children():
+                    w.destroy()
+                self.build_settings()
             self.show()  # zwykle widzety tk na stronie dostaja nowe kolory
 
     def collect_page(self):
@@ -568,19 +681,20 @@ class Wizard:
     def page_general(self, p):
         px = self.theme.px
         p.columnconfigure(1, weight=1)  # kolumna 1: ostrzezenie przy jezyku, pola wyboru biegna przez obie
-        # jezyk: slowa sterujace, model rozpoznawania i glos; nazwy zamiast kodow
-        shown = self.tk.StringVar(value=LANG_NAMES.get(self.v["language"].get(), self.v["language"].get()))
-        lang_box = self.field(p, self.t["language"], shown, 0, values=list(LANG_NAMES.values()), width=20)
-        note = self.ttk.Label(p, style="Muted.TLabel", wraplength=px(420), justify="left")
+        if not self.editing:  # przy zmianie ustawien jezyk ma osobne okno (boczne menu)
+            # jezyk: slowa sterujace, model rozpoznawania i glos; nazwy zamiast kodow
+            shown = self.tk.StringVar(value=LANG_NAMES.get(self.v["language"].get(), self.v["language"].get()))
+            lang_box = self.field(p, self.t["language"], shown, 0, values=list(LANG_NAMES.values()), width=20)
+            note = self.ttk.Label(p, style="Muted.TLabel", wraplength=px(420), justify="left")
 
-        def pick_lang(*_):
-            code = next(c for c, n in LANG_NAMES.items() if n == shown.get())
-            self.v["language"].set(code)
-            missing = speech_model_missing(code)
-            note.configure(text=self.t["lang_missing"].format(missing) if missing else "")
-            note.grid(row=1, column=1, sticky="w", padx=(0, px(4))) if missing else note.grid_remove()
-        lang_box.bind("<<ComboboxSelected>>", pick_lang)
-        pick_lang()
+            def pick_lang(*_):
+                code = next(c for c, n in LANG_NAMES.items() if n == shown.get())
+                self.v["language"].set(code)
+                missing = speech_model_missing(code)
+                note.configure(text=self.t["lang_missing"].format(missing) if missing else "")
+                note.grid(row=1, column=1, sticky="w", padx=(0, px(4))) if missing else note.grid_remove()
+            lang_box.bind("<<ComboboxSelected>>", pick_lang)
+            pick_lang()
         self.field(p, self.t["model"], self.v["model"], 2, values=["sonnet", "opus", "haiku"], width=20)
         self.field(p, self.t["effort"], self.v["effort"], 4, values=["low", "medium", "high"], width=20)
         box = self.field(p, self.t["theme"], self.v["theme"], 6, values=list(self.theme_names.values()), width=20)
@@ -873,16 +987,22 @@ class Wizard:
         missing = speech_model_missing(lang)
         if missing and lang != load_raw().get("language", "pl"):  # nasluch nie wystartowalby bez modelu
             messagebox.showerror(self.t["title"], self.t["lang_missing"].format(missing))
-            return
+            return False
+        self.collect_page()
         try:
             cfg = apply_form(self.form_data(), self.modules)
             restart_mail(cfg)
         except Exception as exc:
             messagebox.showerror(self.t["title"], self.t["save_error"].format(f"{type(exc).__name__}: {exc}"))
-            return
+            return False
         self.saved = True
+        if self.editing:  # okno zostaje - mozna zmienic kolejna sekcje
+            self.status_lbl.configure(text="✓ " + self.t["saved"])
+            self.root.after(4000, lambda: self.status_lbl.winfo_exists() and self.status_lbl.configure(text=""))
+            return True
         messagebox.showinfo(self.t["title"], self.t["saved"])
         self.root.destroy()
+        return True
 
     def run(self):
         self.root.mainloop()
