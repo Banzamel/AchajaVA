@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = Path(__file__).resolve().parent
-TOP, BOTTOM = (132, 100, 255), (76, 44, 190)      # fiolet jak w formularzu ustawien
+TOP, BOTTOM = (200, 62, 66), (112, 24, 30)       # karmazyn jak w oknie Achai
 WHITE = (255, 255, 255)
 
 

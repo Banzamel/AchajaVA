@@ -22,6 +22,7 @@ import threading
 import time
 
 import avatar
+import ornament
 import listener
 import theme
 import update
@@ -35,7 +36,7 @@ WINDOW_FILE = STATE / "app_window.json"
 ICON = ROOT / "setup" / "assets" / "achaja.ico"
 CONFIG = ROOT / "config.json"
 UPDATE_FIRST, UPDATE_EVERY = 20, 15 * 60  # sekundy: pierwsze sprawdzenie po starcie, potem co 15 minut
-ACCENT = "#6c4cd4"
+ACCENT = "#a82a2f"
 
 TEXT = {
     "pl": {
@@ -462,6 +463,9 @@ class App:
         # awatar + imie + stan (slucha / nagrywa / mysli / mowi) - czytelne z daleka
         self.head = head = ttk.Frame(self.root, padding=(px(12), px(10), px(8), px(4)))
         head.pack(fill="x")
+        # haftowany pas pod naglowkiem - fala swiatla, gdy Achaja slucha, mysli albo mowi
+        self.band = ornament.Band(self.root, px(18))
+        self.band.c.pack(fill="x", padx=px(12), pady=(0, px(6)))
         self.avatar = avatar.Avatar(head, px(72))
         self.avatar.widget.pack(side="left")
         self.menu_btn = ttk.Button(head, text="☰", style="Ghost.TButton", width=2, command=self.show_menu)
@@ -1046,7 +1050,7 @@ class App:
             self.upd_btn.pack_forget()
         if not self.upd_bar.winfo_ismapped():
             px = self.theme.px
-            self.upd_bar.pack(fill="x", padx=px(16), pady=(0, px(6)), after=self.head)
+            self.upd_bar.pack(fill="x", padx=px(16), pady=(0, px(6)), after=self.band.c)
 
     def update_action(self):
         if self.update_msg and self.update_msg[1] == "install" and self.update_path:
@@ -1181,7 +1185,7 @@ class App:
             self.live_label.configure(text=live)
             if live and not self.live.winfo_ismapped():
                 px = self.theme.px
-                self.live.pack(fill="x", padx=px(12), pady=(0, px(6)), after=self.head)
+                self.live.pack(fill="x", padx=px(12), pady=(0, px(6)), after=self.band.c)
             elif not live and self.live.winfo_ismapped():
                 self.live.pack_forget()
         if self.term_open:
@@ -1227,6 +1231,7 @@ class App:
             p, key = self.theme.p, self.state_key
             try:
                 self.avatar.draw(key, p[STATE_COLORS[key]], p)
+                self.band.draw(p, p[STATE_COLORS[key]], active=key in ("rec", "wake", "busy", "speak"))
             except Exception as exc:
                 self.logs.put(f"{time.strftime('%H:%M:%S')} BLAD awatara: {exc!r}")
         self.root.after(60, self.animate)

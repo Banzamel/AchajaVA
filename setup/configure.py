@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / ".claude" / "scripts"))
 import common  # noqa: E402  (tworzy state/, ustawia UTF-8)
 import mail  # noqa: E402
+import ornament  # noqa: E402
 import theme  # noqa: E402
 
 CONFIG = ROOT / "config.json"
@@ -385,8 +386,11 @@ class Wizard:
         root.minsize(760, 560)
         side = tk.Frame(root, background=p["surface"], padx=px(8), pady=px(14))
         side.pack(side="left", fill="y")
-        tk.Label(side, text=self.t["title_short"], font=(theme.FONT_BOLD, 14), background=p["surface"],
-                 foreground=p["text"], anchor="w").pack(fill="x", padx=px(10), pady=(0, px(12)))
+        tk.Label(side, text=self.t["title_short"], font=("Georgia", 15, "bold"), background=p["surface"],
+                 foreground=p["accent_text"], anchor="w").pack(fill="x", padx=px(10), pady=(0, px(6)))
+        band = ornament.Band(side, px(12), "surface")  # haftowany pas jak w oknie Achai
+        band.c.pack(fill="x", padx=px(10), pady=(0, px(12)))
+        band.c.bind("<Configure>", lambda e: (setattr(band, "static", None), band.draw(self.theme.p)), add="+")
         self.side_rows = []
         for i, (key, _) in enumerate(self.pages):
             self.side_rows.append(self.side_item(side, SECTION_ICONS.get(key, "•"), self.t[key],

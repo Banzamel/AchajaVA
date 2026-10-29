@@ -3,23 +3,26 @@
 Jasny i ciemny motyw ttk (na bazie "clam"): zaokraglone przyciski, pola, zakladki i suwaki
 rysowane przez Pillow, jedna paleta dla calego programu i ciemny pasek tytulu w trybie ciemnym.
 Tryb ustawia config.json: app.theme = "auto" (jak aplikacje w Windows) | "light" | "dark".
+Kolorystyka w duchu slowianskiej wojowniczki: karmazyn haftu, zloto, ciemny dab noca i len za dnia.
 """
 import ctypes
 
 PALETTES = {
-    "light": {
-        "bg": "#f5f4f9", "surface": "#ffffff", "surface2": "#eeedf4", "hover": "#e6e4ef", "pressed": "#dbd8e7",
-        "border": "#dddbe6", "text": "#1c1a24", "muted": "#6b6878", "faint": "#a3a0b0",
-        "accent": "#6c4cd4", "accent_hover": "#7b5de0", "accent_pressed": "#5a3cc0", "on_accent": "#ffffff",
-        "accent_soft": "#ebe5fd", "accent_text": "#5a3cc0", "select": "#ddd3fb",
-        "green": "#2e9b57", "red": "#d93a3a", "orange": "#d98c1a", "grey": "#9a97a8", "note": "#9a5a00",
+    "light": {  # len, karmazyn, zloto
+        "bg": "#f4ede0", "surface": "#fffaf1", "surface2": "#efe5d3", "hover": "#eadcc5", "pressed": "#e0cfb2",
+        "border": "#ddcdb2", "text": "#2a1d17", "muted": "#76604f", "faint": "#ad9a85",
+        "accent": "#a82a2f", "accent_hover": "#bb3439", "accent_pressed": "#8e2126", "on_accent": "#fff8ec",
+        "accent_soft": "#f3dcd3", "accent_text": "#9a2529", "select": "#ecc9bd",
+        "green": "#4f7d3a", "red": "#b8262c", "orange": "#b7832a", "grey": "#9b8d7d", "note": "#8a5a14",
+        "gold": "#b8862b", "hair": "#c98f3a", "skin": "#f6d9bf", "flower2": "#3f66b8",
     },
-    "dark": {
-        "bg": "#1b1a21", "surface": "#25242d", "surface2": "#2f2e38", "hover": "#393844", "pressed": "#45444f",
-        "border": "#3b3a46", "text": "#ecebf2", "muted": "#a3a1b0", "faint": "#6f6d7c",
-        "accent": "#7e5ff0", "accent_hover": "#8f74f5", "accent_pressed": "#6a4cdc", "on_accent": "#ffffff",
-        "accent_soft": "#312a4f", "accent_text": "#b9a8ff", "select": "#463a75",
-        "green": "#3fbf72", "red": "#f0575b", "orange": "#f0a43a", "grey": "#7d7a8c", "note": "#e0a050",
+    "dark": {  # ciemny dab, karmazyn, zloto
+        "bg": "#17110e", "surface": "#231a15", "surface2": "#2e231c", "hover": "#3a2c23", "pressed": "#47362b",
+        "border": "#3f3027", "text": "#f2e7d6", "muted": "#b8a48f", "faint": "#7a6756",
+        "accent": "#b8323a", "accent_hover": "#c94148", "accent_pressed": "#9c2830", "on_accent": "#fff6e8",
+        "accent_soft": "#3d1f1d", "accent_text": "#e8a07a", "select": "#5a2a26",
+        "green": "#7fae5a", "red": "#e2484f", "orange": "#e0aa4a", "grey": "#86766a", "note": "#e3b060",
+        "gold": "#d9a646", "hair": "#d39a45", "skin": "#efcfb2", "flower2": "#6f92e0",
     },
 }
 FONT = "Segoe UI"
@@ -289,7 +292,7 @@ class Theme:
         style.configure("Live.TLabel", background=p["accent_soft"], foreground=p["text"], font=(FONT, 10, "italic"))
         style.configure("State.TLabel", foreground=p["muted"], font=(FONT_BOLD, 10))
         style.configure("Chip.TLabel", background=p["surface"], foreground=p["muted"], font=(FONT, 9))
-        style.configure("Brand.TLabel", font=(FONT_BOLD, 13))
+        style.configure("Brand.TLabel", font=("Georgia", 15, "bold"), foreground=p["accent_text"])
         style.configure("Card.TCheckbutton", background=p["surface"])
         style.configure("TFrame", background=p["bg"])
         style.configure("Plain.TFrame", background=p["surface"])
