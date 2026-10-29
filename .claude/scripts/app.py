@@ -45,12 +45,13 @@ TEXT = {
         "console": "Pokaż / ukryj konsolę Claude", "settings": "Ustawienia…", "restart": "Uruchom nasłuch ponownie",
         "quit": "Zakończ", "show": "Pokaż okno", "you": "Ty", "achaja": "Achaja",
         "st_idle": "Czuwam — powiedz słowo wybudzenia", "st_rec": "Nagrywam… zakończ słowem końcowym",
-        "st_busy": "Pracuję…", "st_wait": "Czekam na Twoją zgodę w konsoli Claude", "st_speak": "Mówię…",
+        "st_busy": "Pracuję…", "st_wait": "Czekam na Twoją zgodę — zakładka Terminal", "st_speak": "Mówię…",
         "st_paused": "Nasłuch wstrzymany", "st_start": "Uruchamiam…", "st_closed": "Sesja Claude została zamknięta",
         "st_error": "Błąd nasłuchu — zobacz Dziennik",
         "placeholder": "Napisz do Achai (Enter wysyła, Shift+Enter nowa linia)",
-        "wait_note": "Claude pyta o zgodę — otworzyłam konsolę, odpowiedz tam.",
-        "stop_agent": "Przerwij agenta", "working": "pracuje {} min", "no_agents": "Brak agentów.",
+        "wait_note": "Claude pyta o zgodę — otworzyłam konsolę, odpowiedz tam albo w zakładce Terminal.",
+        "stop_agent": "■  Przerwij", "agent_remove": "Usuń z listy", "agent_finished": "zakończył {}",
+        "agent_stopping": "Przerywam agenta {}…", "working": "pracuje {} min", "no_agents": "Brak agentów.",
         "quit_ask": "Zakończyć Achaję? Nasłuch i ukryta sesja Claude zostaną zamknięte.",
         "already": "Achaja już działa w oknie konsoli (start-achaja.cmd).",
         "edit_config": "Edytuj plik konfiguracji", "check_update": "Sprawdź aktualizacje", "about": "O programie",
@@ -83,12 +84,13 @@ TEXT = {
         "console": "Show / hide the Claude console", "settings": "Settings…", "restart": "Restart the listener",
         "quit": "Quit", "show": "Show window", "you": "You", "achaja": "Achaja",
         "st_idle": "Listening for the wake word", "st_rec": "Recording… finish with the end word",
-        "st_busy": "Working…", "st_wait": "Waiting for your approval in the Claude console", "st_speak": "Speaking…",
+        "st_busy": "Working…", "st_wait": "Waiting for your approval — Terminal tab", "st_speak": "Speaking…",
         "st_paused": "Listening paused", "st_start": "Starting…", "st_closed": "The Claude session was closed",
         "st_error": "Listener error — see the Log",
         "placeholder": "Write to Achaja (Enter sends, Shift+Enter adds a line)",
         "wait_note": "Claude is asking for approval — I opened the console, answer there.",
-        "stop_agent": "Stop agent", "working": "working {} min", "no_agents": "No agents.",
+        "stop_agent": "■  Stop", "agent_remove": "Remove from list", "agent_finished": "finished {}",
+        "agent_stopping": "Stopping agent {}…", "working": "working {} min", "no_agents": "No agents.",
         "quit_ask": "Quit Achaja? The listener and the hidden Claude session will be closed.",
         "already": "Achaja is already running in a console window (start-achaja.cmd).",
         "edit_config": "Edit the configuration file", "check_update": "Check for updates", "about": "About",
@@ -491,7 +493,7 @@ class App:
         self.upd_bar = ttk.Frame(self.root, style="Banner.TFrame", padding=(px(14), px(6), px(6), px(6)))
         self.upd_label = ttk.Label(self.upd_bar, style="Banner.TLabel")
         self.upd_label.pack(side="left")
-        self.upd_btn = ttk.Button(self.upd_bar, style="Accent.TButton", command=self.update_action)
+        self.upd_btn = ttk.Button(self.upd_bar, style="Banner.Accent.TButton", command=self.update_action)
         self.upd_shown = None
 
     def build_chat(self, nb):
@@ -544,7 +546,8 @@ class App:
         right.pack(fill="both", expand=True, pady=(px(8), 0))
         top = ttk.Frame(right, style="Plain.TFrame")
         top.pack(fill="x", pady=(0, px(6)))
-        ttk.Button(top, text="■", style="Key.TButton", command=self.stop_agent).pack(side="right")
+        self.agent_btn = ttk.Button(top, style="Card.Key.TButton", command=self.agent_action)
+        self.agent_btn.pack(side="right")
         self.agent_title = ttk.Label(top, style="CardTitle.TLabel", text=t["agent_pick"])
         self.agent_title.pack(side="left")
         self.agent_sub = ttk.Label(top, style="CardMuted.TLabel")
@@ -565,10 +568,13 @@ class App:
         nb.add(frame, text=t["term"])
         keys = ttk.Frame(frame)
         keys.pack(side="bottom", fill="x", pady=(px(6), 0))
+        ttk.Button(keys, text="⧉  " + t["term_console"], style="Key.TButton", command=self.toggle_console).pack(
+            side="right")
+        # klawisze do okien wyboru Claude (zgoda, nowy serwer MCP) - widoczne tylko, gdy takie okno czeka
+        self.term_keys = ttk.Frame(keys)
         for label, seq in TERM_KEYS:
-            ttk.Button(keys, text=label, style="Key.TButton", width=len(label) + 2,
-                       command=lambda seq=seq: self.request(("key", seq))).pack(side="left", padx=(0, px(4)))
-        ttk.Button(keys, text="⧉", style="Key.TButton", width=3, command=self.toggle_console).pack(side="right")
+            ttk.Button(self.term_keys, text=label, style="Key.TButton", width=len(label) + 1,
+                       command=lambda seq=seq: self.request(("key", seq))).pack(side="left", padx=(0, px(3)))
         card = ttk.Frame(frame, style="Card.TFrame", padding=(px(10), px(8), px(4), px(8)))
         card.pack(fill="both", expand=True)
         self.term_text = tk.Text(card, wrap="word", state="disabled", padx=px(2), pady=px(2),
@@ -830,7 +836,11 @@ class App:
             if n in running:
                 labels.append(f"●  {n}  · " + self.t["working"].format(self.agent_minutes(n)))
             else:
-                labels.append(f"○  {n}")
+                try:
+                    when = time.strftime("%d.%m %H:%M", time.localtime(os.path.getmtime(AGENTS_STATE / f"{n}.log")))
+                except OSError:
+                    when = ""
+                labels.append(f"✓  {n}  · " + self.t["agent_finished"].format(when))
         if labels != list(self.agent_list.get(0, "end")):
             selected = self.selected_agent()
             self.agent_list.delete(0, "end")
@@ -862,6 +872,8 @@ class App:
         sub = "● " + self.t["working"].format(self.agent_minutes(name)) if working else (
             self.t["agent_done"] if name else "")
         self.agent_title.configure(text=name or self.t["agent_pick"])
+        self.agent_btn.configure(text=self.t["stop_agent"] if working else self.t["agent_remove"])
+        self.agent_btn.state(["!disabled"] if name else ["disabled"])
         self.agent_sub.configure(text=sub, foreground=self.theme.p["green" if working else "muted"])
         path = AGENTS_STATE / f"{name}.log" if name else None
         try:
@@ -880,12 +892,29 @@ class App:
         if at_end or force:
             self.agent_text.see("end")
 
-    def stop_agent(self):
+    def agent_action(self):
+        """Pracujacy agent: przerwij. Zakonczony: usun z listy (log trafia do state/agents/archive)."""
         name = self.selected_agent()
-        if name:
-            threading.Thread(target=subprocess.run, daemon=True, kwargs={
-                "args": [str(PYTHON), str(SCRIPTS / "agent.py"), "stop", name],
-                "creationflags": CREATE_NO_WINDOW, "capture_output": True, "stdin": subprocess.DEVNULL}).start()
+        if not name:
+            return
+        if name in self.agent_running:
+            self.add_note(self.t["agent_stopping"].format(name))
+
+            def work():
+                result = subprocess.run([str(PYTHON), str(SCRIPTS / "agent.py"), "stop", name], capture_output=True,
+                                        text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL,
+                                        creationflags=CREATE_NO_WINDOW)
+                self.logs.put(f"{time.strftime('%H:%M:%S')} {(result.stdout or result.stderr).strip()}")
+            threading.Thread(target=work, daemon=True).start()
+            return
+        archive = AGENTS_STATE / "archive"
+        archive.mkdir(exist_ok=True)
+        try:
+            os.replace(AGENTS_STATE / f"{name}.log", archive / f"{name}.log")
+        except OSError as exc:
+            self.logs.put(f"{time.strftime('%H:%M:%S')} BLAD: nie udalo sie usunac {name} z listy: {exc}")
+        self.agent_list.delete(0, "end")  # odswiezy sie bez niego
+        self.refresh_agents()
 
     # --- nasluch ---
     def start_listener(self, resume):
@@ -1157,6 +1186,9 @@ class App:
                 self.live.pack_forget()
         if self.term_open:
             self.show_terminal(screen)
+        dialog_keys = key in ("dialog", "wait")
+        if dialog_keys != self.term_keys.winfo_ismapped():
+            self.term_keys.pack(side="left") if dialog_keys else self.term_keys.pack_forget()
 
         # okno wyboru w konsoli (np. nowy serwer MCP przy starcie) - bez odpowiedzi Achaja nie nagra ani nie odpowie
         problem, b.problem = b.problem, None

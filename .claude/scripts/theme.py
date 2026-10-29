@@ -184,7 +184,10 @@ class Theme:
         style.configure("Ghost.TButton", padding=(px(6), px(2)), foreground=p["muted"], font=(FONT, 12))
         style.map("Ghost.TButton", foreground=[("active", p["text"])])
         style.layout("Key.TButton", style.layout("TButton"))  # male klawisze pod podgladem terminala
-        style.configure("Key.TButton", padding=(px(8), px(2)), anchor="center", foreground=p["text"], font=(FONT, 9))
+        style.configure("Key.TButton", padding=(px(6), px(2)), anchor="center", foreground=p["text"], font=(FONT, 9))
+        # przyciski na kartach i banerze: przezroczyste rogi w kolorze podloza, nie tla okna
+        style.configure("Card.Key.TButton", background=p["surface"])
+        style.configure("Banner.Accent.TButton", background=p["accent_soft"])
 
         # pola tekstowe i listy rozwijane
         self._element(style, "A.field", (px(40), px(32)), px(6), [
