@@ -123,6 +123,20 @@ class Theme:
         self.images.setdefault(self.mode, []).append(photo)
         return photo
 
+    def _chevron(self, size, color, up=False):
+        """Strzalka listy wyboru: cienki szewron (w dol, po otwarciu w gore)."""
+        from PIL import Image, ImageDraw, ImageTk
+        k, (w, h) = 4, size
+        img = Image.new("RGBA", (w * k, h * k), (0, 0, 0, 0))
+        d = ImageDraw.Draw(img)
+        cx, cy, s = w * k / 2, h * k / 2, min(w, h) * k * 0.2
+        dy = -s / 2 if up else s / 2
+        d.line([(cx - s, cy - dy), (cx, cy + dy), (cx + s, cy - dy)], fill=color, width=round(1.6 * self.scale * k),
+               joint="curve")
+        photo = ImageTk.PhotoImage(img.resize((w, h), Image.LANCZOS), master=self.root)
+        self.images.setdefault(self.mode, []).append(photo)
+        return photo
+
     def _element(self, style, name, size, radius, states, border=None, inset=(0, 0), sticky="nsew", padding=0):
         """states: lista (stan ttk albo "" dla domyslnego, kolor wypelnienia, kolor obramowania[, znaczek])."""
         w, h = size
@@ -179,15 +193,21 @@ class Theme:
         style.layout("TEntry", [("A.field", {"sticky": "nsew", "children": [
             ("Entry.padding", {"sticky": "nsew", "children": [("Entry.textarea", {"sticky": "nsew"})]})]})])
         style.configure("TEntry", padding=(px(4), px(3)), fieldbackground=p["surface"])
+        # lista wyboru: szewron zamiast trojkata, bez niebieskiego zaznaczenia tekstu w polu tylko do wyboru
+        chev = (px(26), px(20))
+        style.element_create("A.chevron", "image", self._chevron(chev, p["muted"]),
+                             ("pressed", self._chevron(chev, p["accent"], up=True)),
+                             ("active", self._chevron(chev, p["text"])), sticky="", padding=(0, 0, px(6), 0))
         style.layout("TCombobox", [("A.field", {"sticky": "nsew", "children": [
-            ("Combobox.downarrow", {"side": "right", "sticky": "ns"}),
+            ("A.chevron", {"side": "right", "sticky": "ns"}),
             ("Combobox.padding", {"expand": "1", "sticky": "nsew", "children": [
                 ("Combobox.textarea", {"sticky": "nsew"})]})]})])
-        style.configure("TCombobox", padding=(px(4), px(3)), background=p["surface"], fieldbackground=p["surface"],
+        style.configure("TCombobox", padding=(px(6), px(4)), background=p["surface"], fieldbackground=p["surface"],
                         bordercolor=p["surface"], lightcolor=p["surface"], darkcolor=p["surface"],
                         arrowcolor=p["muted"], arrowsize=px(12))
         style.map("TCombobox", background=[("active", p["surface"]), ("pressed", p["surface"])],
                   fieldbackground=[("readonly", p["surface"])], arrowcolor=[("active", p["text"])],
+                  selectbackground=[("readonly", p["surface"])], selectforeground=[("readonly", p["text"])],
                   bordercolor=[("focus", p["surface"])], lightcolor=[("focus", p["surface"])])
 
         # pole wyboru z zaokraglonym kwadratem (obrazek ma z prawej odstep od etykiety)
@@ -213,6 +233,11 @@ class Theme:
         style.map("TNotebook.Tab", foreground=[("selected", p["accent_text"]), ("active", p["text"])])
         style.layout("TNotebook", [("Notebook.client", {"sticky": "nsew"})])
         style.configure("TNotebook", bordercolor=p["bg"], lightcolor=p["bg"], darkcolor=p["bg"])
+        # kroki ustawien jako klikalne "pigulki" (stan selected = biezacy krok)
+        style.layout("Chip.TButton", [("A.tab", {"sticky": "nsew", "children": [
+            ("Button.padding", {"sticky": "nsew", "children": [("Button.label", {"sticky": ""})]})]})])
+        style.configure("Chip.TButton", padding=(px(8), px(4)), foreground=p["muted"], font=(FONT_BOLD, 9))
+        style.map("Chip.TButton", foreground=[("selected", p["accent_text"]), ("active", p["text"])])
 
         # waskie, zaokraglone suwaki bez strzalek
         self._element(style, "Vertical.Scrollbar.thumb", (px(12), px(32)), px(4), [
@@ -260,6 +285,7 @@ class Theme:
         style.configure("Banner.TLabel", background=p["accent_soft"], foreground=p["accent_text"], font=bold)
         style.configure("Live.TLabel", background=p["accent_soft"], foreground=p["text"], font=(FONT, 10, "italic"))
         style.configure("State.TLabel", foreground=p["muted"], font=(FONT_BOLD, 10))
+        style.configure("Chip.TLabel", background=p["surface"], foreground=p["muted"], font=(FONT, 9))
         style.configure("Brand.TLabel", font=(FONT_BOLD, 13))
         style.configure("Card.TCheckbutton", background=p["surface"])
         style.configure("TFrame", background=p["bg"])

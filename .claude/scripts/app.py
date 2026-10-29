@@ -61,7 +61,8 @@ TEXT = {
         "upd_none": "Masz najnowszą wersję ({}).", "upd_error": "Nie udało się sprawdzić aktualizacji: {}",
         "upd_noasset": "Wydanie {} nie ma jeszcze instalatora — spróbuję później.",
         "config_changed": "Zmieniono ustawienia — uruchamiam nasłuch ponownie.",
-        "copy": "Kopiuj", "empty_title": "Cześć, tu Achaja",
+        "copy": "Kopiuj", "copy_sel": "Kopiuj zaznaczenie", "copy_all": "Kopiuj całą odpowiedź",
+        "copied": "Skopiowano", "empty_title": "Cześć, tu Achaja",
         "empty": "Powiedz słowo wybudzenia albo napisz wiadomość poniżej.",
         "agent_done": "zakończył pracę", "agent_pick": "Wybierz agenta z listy", "menu_tip": "Menu",
         "term": "Terminal", "st_wake": "Słucham…", "st_dialog": "Claude czeka na decyzję — zakładka Terminal",
@@ -70,6 +71,10 @@ TEXT = {
         "dialog_say": "Claude czeka na decyzję na ekranie, w zakładce Terminal.",
         "rec_failed": "Claude nie włączył nagrywania — zobacz zakładkę Terminal.",
         "term_empty": "Sesja Claude jeszcze nie działa.", "term_console": "Okno konsoli",
+        "hint_idle": "🎙  Powiedz „{}”, żeby zacząć mówić",
+        "hint_rec": "🎙  Wyślij: „{}”  ·  przerwij: „{}”  ·  od nowa: „{}”",
+        "hint_dialog": "Claude czeka na wybór — odpowiedz w zakładce Terminal",
+        "hint_paused": "Nasłuch wstrzymany — kliknij „Wznów nasłuch”", "hint_start": "Uruchamiam sesję Claude…",
     },
     "en": {
         "chat": "Conversation", "agents": "Agents", "log": "Log", "send": "Send", "talk": "Talk",
@@ -94,7 +99,8 @@ TEXT = {
         "upd_none": "You have the latest version ({}).", "upd_error": "Could not check for updates: {}",
         "upd_noasset": "Release {} has no installer yet — I will try later.",
         "config_changed": "Settings changed — restarting the listener.",
-        "copy": "Copy", "empty_title": "Hi, this is Achaja",
+        "copy": "Copy", "copy_sel": "Copy selection", "copy_all": "Copy the whole answer",
+        "copied": "Copied", "empty_title": "Hi, this is Achaja",
         "empty": "Say the wake word or type a message below.",
         "agent_done": "finished", "agent_pick": "Pick an agent from the list", "menu_tip": "Menu",
         "term": "Terminal", "st_wake": "Listening…", "st_dialog": "Claude is waiting for a choice — Terminal tab",
@@ -103,6 +109,10 @@ TEXT = {
         "dialog_say": "Claude is waiting for a choice on screen, in the Terminal tab.",
         "rec_failed": "Claude did not start recording — see the Terminal tab.",
         "term_empty": "The Claude session is not running yet.", "term_console": "Console window",
+        "hint_idle": "🎙  Say “{}” to start talking",
+        "hint_rec": "🎙  Send: “{}”  ·  cancel: “{}”  ·  start over: “{}”",
+        "hint_dialog": "Claude is waiting for a choice — answer in the Terminal tab",
+        "hint_paused": "Listening paused — click “Resume listening”", "hint_start": "Starting the Claude session…",
     },
 }
 # kolor stanu (klucz palety z theme.py) - awatar, opis stanu
@@ -157,49 +167,160 @@ def round_rect(x1, y1, x2, y2, r):
             x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
 
 
+def wrapped_lines(text, font, width):
+    """Ile linii zajmie tekst zawijany po slowach (jak Text z wrap="word") w polu o szerokosci width."""
+    total = 0
+    for para in text.split("\n"):
+        lines, line = 1, ""
+        for word in para.split(" "):
+            candidate = f"{line} {word}" if line else word
+            if font.measure(candidate) <= width:
+                line = candidate
+                continue
+            if line:
+                lines += 1
+            while font.measure(word) > width and len(word) > 1:  # slowo dluzsze niz linia - lamane po znakach
+                cut = max(1, next((i for i in range(len(word), 0, -1) if font.measure(word[:i]) <= width), 1))
+                word = word[cut:]
+                lines += 1
+            line = word
+        total += lines
+    return max(1, total)
+
+
 class Bubble:
-    """Dymek rozmowy: plotno osadzone w polu tekstowym rozmowy (szerokosc dopasowana do tresci)."""
+    """Dymek rozmowy: plotno z zaokraglonym tlem osadzone w polu rozmowy, a w nim pola tekstowe tylko do
+    odczytu - tekst da sie zaznaczac myszka i kopiowac (Ctrl+C, prawy przycisk). Szerokosc wg tresci."""
 
     def __init__(self, app, body, voice, mine):
-        p, px = app.theme.p, app.theme.px
+        from tkinter import font as tkfont
+        p, px, tk = app.theme.p, app.theme.px, app.tk
         self.app, self.mine = app, mine
         self.copy_text = "\n\n".join(x for x in (body, voice) if x)
-        self.c = c = app.tk.Canvas(app.chat, highlightthickness=0, borderwidth=0, background=p["bg"])
-        self.shape = c.create_polygon(0, 0, 0, 0, smooth=True,
-                                      fill=p["accent"] if mine else p["surface"], outline="")
-        self.items = []
-        if body:
-            self.items.append(c.create_text(0, 0, anchor="nw", text=body, font=(FONT, 10),
-                                            fill=p["on_accent"] if mine else p["text"]))
-        if voice:
-            self.items.append(c.create_text(0, 0, anchor="nw", text="♪  " + voice, font=(FONT, 10, "italic"),
-                                            fill=p["accent_text"]))
+        fill = p["accent"] if mine else p["surface"]
+        self.c = c = tk.Canvas(app.chat, highlightthickness=0, borderwidth=0, background=p["bg"])
+        self.shape = c.create_polygon(0, 0, 0, 0, smooth=True, fill=fill, outline="")
+        self.parts = []  # (pole tekstowe, okno na plotnie, czcionka, tekst)
+        for text, font, color in ((body, (FONT, 10), p["on_accent"] if mine else p["text"]),
+                                  ("♪  " + voice if voice else "", (FONT, 10, "italic"), p["accent_text"])):
+            if not text:
+                continue
+            t = tk.Text(c, wrap="word", font=font, borderwidth=0, highlightthickness=0, padx=0, pady=0,
+                        background=fill, foreground=color, cursor="xterm", height=1, width=1,
+                        selectbackground=p["select"], selectforeground=p["text"],
+                        inactiveselectbackground=p["select"], insertwidth=0)
+            t.insert("1.0", text)
+            t.configure(state="disabled")
+            # wylaczone pole nie bierze fokusu - bez tego Ctrl+C nie trafialby do zaznaczenia
+            t.bind("<Button-1>", lambda e, t=t: t.focus_set(), add="+")
+            t.bind("<Control-c>", lambda e: self.copy_selection() or "break")
+            t.bind("<MouseWheel>", app.on_chat_wheel)
+            t.bind("<Button-3>", self.menu)
+            self.parts.append((t, c.create_window(0, 0, anchor="nw", window=t), tkfont.Font(font=font), text))
         self.pad = (px(14), px(9))
         c.bind("<MouseWheel>", app.on_chat_wheel)
         c.bind("<Button-3>", self.menu)
 
     def layout(self, maxw):
-        c, (pad_x, pad_y) = self.c, self.pad
-        width = max(120, maxw - 2 * pad_x)
-        y, right = pad_y, 0
-        for item in self.items:
-            c.coords(item, pad_x, y)
-            c.itemconfigure(item, width=width)
-            x0, y0, x1, y1 = c.bbox(item)
-            y, right = y1 + self.app.theme.px(6), max(right, x1)
-        w, h = right + pad_x, y - self.app.theme.px(6) + pad_y
-        c.coords(self.shape, *round_rect(0, 0, w - 1, h - 1, min(self.app.theme.px(14), h // 2)))
+        c, (pad_x, pad_y), px = self.c, self.pad, self.app.theme.px
+        inner = max(120, maxw - 2 * pad_x)
+        # dymek waski dla krotkiej odpowiedzi: szerokosc najdluzszej linii, najwyzej tyle, ile miesci sie w oknie
+        natural = max((max(font.measure(line) for line in text.split("\n")) + px(4)
+                       for _, _, font, text in self.parts), default=0)
+        width = min(inner, max(natural, px(24)))
+        y = pad_y
+        for t, win, font, text in self.parts:
+            # liczba linii z szerokosci czcionki - pole jeszcze niewyswietlone nie zna swojego zawijania
+            height = wrapped_lines(text, font, width - px(2)) * font.metrics("linespace")
+            c.coords(win, pad_x, y)
+            c.itemconfigure(win, width=width, height=height)
+            y += height + px(6)
+        w, h = width + 2 * pad_x, y - px(6) + pad_y
+        c.coords(self.shape, *round_rect(0, 0, w - 1, h - 1, min(px(14), h // 2)))
         c.configure(width=w, height=h)
+
+    def selection(self):
+        for t, *_ in self.parts:
+            if t.tag_ranges("sel"):
+                return t.get("sel.first", "sel.last")
+        return ""
 
     def menu(self, event):
         m = self.app.tk.Menu(self.c, tearoff=False)
         self.app.theme.menu(m)
-        m.add_command(label=self.app.t["copy"], command=self.copy)
+        if self.selection():
+            m.add_command(label=self.app.t["copy_sel"], command=self.copy_selection)
+        m.add_command(label=self.app.t["copy_all"], command=self.copy)
         m.tk_popup(event.x_root, event.y_root)
+
+    def copy_selection(self):
+        text = self.selection()
+        if text:
+            self.c.clipboard_clear()
+            self.c.clipboard_append(text)
 
     def copy(self):
         self.c.clipboard_clear()
         self.c.clipboard_append(self.copy_text)
+
+
+class PopupMenu:
+    """Menu aplikacji: duze, czytelne pozycje z ikonami w kolorach motywu (menu systemowe Windows jest male
+    i ignoruje ciemny motyw). items: (ikona, opis, funkcja) albo None jako separator."""
+
+    def __init__(self, app, items):
+        self.app, self.items = app, items
+        self.win = None
+        self.closed_at = 0.0
+
+    def toggle(self, right, top):
+        if self.win:
+            self.close()
+        elif time.time() - self.closed_at > 0.25:  # klik w ☰ przy otwartym menu najpierw je zamyka (FocusOut)
+            self.open(right, top)
+
+    def open(self, right, top):
+        tk, th = self.app.tk, self.app.theme
+        p, px = th.p, th.px
+        self.win = win = tk.Toplevel(self.app.root)
+        win.overrideredirect(True)
+        win.attributes("-topmost", True)
+        frame = tk.Frame(win, background=p["border"], padx=1, pady=1)
+        frame.pack()
+        body = tk.Frame(frame, background=p["surface"], padx=px(4), pady=px(4))
+        body.pack()
+        for item in self.items:
+            if item is None:
+                tk.Frame(body, height=1, background=p["border"]).pack(fill="x", padx=px(10), pady=px(4))
+                continue
+            icon, label, command = item
+            row = tk.Frame(body, background=p["surface"], cursor="hand2")
+            row.pack(fill="x")
+            parts = [row, tk.Label(row, text=icon, width=2, font=(FONT, 12), background=p["surface"],
+                                   foreground=p["accent_text"]),
+                     tk.Label(row, text=label, anchor="w", font=(FONT, 11), background=p["surface"],
+                              foreground=p["text"])]
+            parts[1].pack(side="left", padx=(px(10), px(6)), pady=px(6))
+            parts[2].pack(side="left", fill="x", expand=True, padx=(0, px(18)))
+            for w in parts:
+                w.bind("<Enter>", lambda e, ws=parts: [x.configure(background=p["accent_soft"]) for x in ws])
+                w.bind("<Leave>", lambda e, ws=parts: [x.configure(background=p["surface"]) for x in ws])
+                w.bind("<Button-1>", lambda e, c=command: self.run(c))
+        win.update_idletasks()
+        win.geometry(f"+{right - win.winfo_reqwidth()}+{top + px(4)}")
+        win.bind("<FocusOut>", lambda e: self.close())
+        win.bind("<Escape>", lambda e: self.close())
+        win.focus_force()
+
+    def run(self, command):
+        self.close()
+        self.app.root.after(10, command)
+
+    def close(self):
+        if self.win:
+            self.win.destroy()
+            self.win = None
+            self.closed_at = time.time()
 
 
 class App:
@@ -281,25 +402,26 @@ class App:
 
     # --- budowa okna ---
     def build_menu(self):
-        tk, t = self.tk, self.t
-        self.menu = m = tk.Menu(self.root, tearoff=False)
-        m.add_command(label=t["new"], command=lambda: self.request("clear"))
-        m.add_command(label=t["repeat"], command=self.repeat)
-        m.add_separator()
-        m.add_command(label=t["console"], command=self.toggle_console)
-        m.add_command(label=t["restart"], command=self.restart_listener)
-        m.add_command(label=t["settings"], command=self.open_settings)
-        m.add_command(label=t["edit_config"], command=self.edit_config)
-        m.add_separator()
-        m.add_command(label=t["check_update"], command=lambda: self.check_update(manual=True))
-        m.add_command(label=t["about"], command=self.about)
-        m.add_separator()
-        m.add_command(label=t["quit"], command=self.quit)
+        t = self.t
+        self.menu = PopupMenu(self, [
+            ("＋", t["new"], lambda: self.request("clear")),
+            ("↻", t["repeat"], self.repeat),
+            None,
+            ("⚙", t["settings"], self.open_settings),
+            ("✎", t["edit_config"], self.edit_config),
+            None,
+            ("▣", t["console"], self.toggle_console),
+            ("⟳", t["restart"], self.restart_listener),
+            ("⇩", t["check_update"], lambda: self.check_update(manual=True)),
+            ("ⓘ", t["about"], self.about),
+            None,
+            ("⏻", t["quit"], self.quit),
+        ])
         self.root.bind("<F10>", lambda e: self.show_menu() or "break")
 
     def show_menu(self):
         b = self.menu_btn
-        self.menu.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
+        self.menu.toggle(b.winfo_rootx() + b.winfo_width(), b.winfo_rooty() + b.winfo_height())
 
     def build_header(self):
         ttk, t, px = self.ttk, self.t, self.theme.px
@@ -328,6 +450,11 @@ class App:
         self.cancel_btn = ttk.Button(bar, text=t["cancel"], command=lambda: self.request("cancel"))
         self.pause_btn = ttk.Button(bar, text=t["pause"], command=self.toggle_pause)
         self.pause_btn.pack(side="left", padx=(px(6), 0))
+        # podpowiedz (nieklikalna): jakie slowa dzialaja teraz - "Achaja" przy czuwaniu, "wykonaj"... przy nagrywaniu
+        chip = ttk.Frame(self.root, style="Pill.TFrame", padding=(px(12), px(3)))
+        chip.pack(anchor="w", padx=px(12), pady=(0, px(4)))
+        self.hint = ttk.Label(chip, style="Chip.TLabel")
+        self.hint.pack()
         # pasek aktualizacji - pokazuje sie, gdy jest nowa wersja
         self.upd_bar = ttk.Frame(self.root, style="Banner.TFrame", padding=(px(14), px(6), px(6), px(6)))
         self.upd_label = ttk.Label(self.upd_bar, style="Banner.TLabel")
@@ -353,8 +480,9 @@ class App:
         self.chat.bind("<MouseWheel>", self.on_chat_wheel)
 
         self.entry_card = card
+        # przycisk tej samej wysokosci co pole wpisywania
         ttk.Button(card, text="➤", style="Accent.TButton", width=3, command=self.send_text).pack(
-            side="right", anchor="s")
+            side="right", fill="y")
         self.entry = tk.Text(card, height=2, wrap="word", font=(FONT, 10), padx=px(6), pady=px(4))
         self.entry.pack(side="left", fill="both", expand=True, padx=(0, px(8)))
         self.entry.bind("<Return>", self.on_enter)
@@ -471,10 +599,13 @@ class App:
         th.text(self.term_text)
         th.text(self.log_text)
         th.listbox(self.agent_list)
-        th.menu(self.menu)
+        self.menu.close()  # otworzy sie w nowych kolorach
         self.chat.tag_configure("who", foreground=p["muted"], font=(FONT_BOLD, 9), spacing1=th.px(12))
         self.chat.tag_configure("meta", foreground=p["faint"], font=(FONT, 8), spacing1=th.px(12))
         self.chat.tag_configure("bubble", spacing1=th.px(3), spacing3=th.px(2))
+        self.chat.tag_configure("copylink", foreground=p["accent_text"], font=(FONT, 8), spacing1=th.px(2))
+        self.chat.tag_bind("copylink", "<Enter>", lambda e: self.chat.configure(cursor="hand2"))
+        self.chat.tag_bind("copylink", "<Leave>", lambda e: self.chat.configure(cursor="arrow"))
         self.chat.tag_configure("right", justify="right")
         self.chat.tag_configure("left", justify="left")
         self.chat.tag_configure("note", foreground=p["note"], font=(FONT, 9, "italic"), justify="center",
@@ -580,6 +711,29 @@ class App:
         chat.insert("end", "\n")
         chat.tag_add(align, start, "end-1c")
         chat.tag_add("bubble", start, "end-1c")
+        if not mine:  # widoczne "Kopiuj" pod odpowiedzia Achai (zaznaczony fragment: Ctrl+C albo prawy przycisk)
+            tag = f"copy{len(self.bubbles)}"
+            chat.insert("end", "⧉ " + self.t["copy"] + "\n", ("copylink", tag, align))
+            chat.tag_bind(tag, "<Button-1>", lambda e, b=bubble, tag=tag: self.copy_answer(b, tag))
+
+    def copy_answer(self, bubble, tag):
+        bubble.copy()
+        ranges = self.chat.tag_ranges(tag)
+        if not ranges:
+            return
+        self.chat.configure(state="normal")  # chwilowo "Skopiowano" w miejscu linku
+        self.chat.delete(ranges[0], ranges[1])
+        self.chat.insert(ranges[0], "✓ " + self.t["copied"] + "\n", ("copylink", tag, "left"))
+        self.chat.configure(state="disabled")
+
+        def back():
+            r = self.chat.tag_ranges(tag)
+            if r:
+                self.chat.configure(state="normal")
+                self.chat.delete(r[0], r[1])
+                self.chat.insert(r[0], "⧉ " + self.t["copy"] + "\n", ("copylink", tag, "left"))
+                self.chat.configure(state="disabled")
+        self.root.after(1500, back)
 
     def bubble_width(self):
         width = self.chat.winfo_width()
@@ -939,6 +1093,7 @@ class App:
             status = self.t["busy_for"].format(f"{secs // 60}:{secs % 60:02d}" if secs else "").strip()
         self.status.configure(text=status, foreground=self.theme.p[STATE_COLORS[key]])
         self.pause_btn.configure(text=self.t["resume"] if b.paused else self.t["pause"])
+        self.hint.configure(text=self.command_hint(key))
         if key == "rec":
             self.talk_btn.configure(text="➤  " + self.t["send_rec"])
             if not self.cancel_btn.winfo_ismapped():
@@ -984,6 +1139,20 @@ class App:
                 and time.time() - self.last_start > 30):
             self.add_note(self.t["st_closed"])
             self.start_listener(resume=True)
+
+    def command_hint(self, key):
+        """Komendy glosowe dla obecnego stanu - slowa z config.json (wybrany jezyk)."""
+        w, t = self.cfg["wake"], self.t
+        first = lambda name, default: (w.get(name) or [default])[0]  # noqa: E731
+        if key in ("rec", "wake"):
+            return t["hint_rec"].format(first("end", "wykonaj"), first("cancel", "anuluj"), first("clear", "nowa rozmowa"))
+        if key in ("wait", "dialog"):
+            return t["hint_dialog"]
+        if key == "paused":
+            return t["hint_paused"]
+        if key in ("start", "closed", "error"):
+            return t["hint_start"]
+        return t["hint_idle"].format(t["achaja"])
 
     def animate(self):
         """Awatar: slucha, mysli, mowi albo czeka - animacja tylko przy widocznym oknie."""

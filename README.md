@@ -153,6 +153,16 @@ Achaja ──► agent.py run <project> ──► claude -p  (cwd = the project 
 3. Copy `.mcp.example.json` → `.mcp.json` and set your HA address. The token reaches the session as `${HA_TOKEN}` and is never stored in a config file.
 4. In HA expose the devices Achaja may control (Settings → Voice assistants → Expose).
 
+The MCP integration cannot change an air conditioner's **HVAC mode** (heat, cool, auto, dry, fan only) — after `HassTurnOn` the device picks the mode itself. For that and other services MCP lacks, Achaja uses `.claude/scripts/ha.py` (Home Assistant REST API, standard library only; address from `config.json` → `home_assistant.url`, token from `state/ha_token.txt`, never printed):
+
+```
+.venv\Scripts\python.exe .claude\scripts\ha.py climate "living room" --mode heat --temp 23   # sets, then re-reads and compares
+.venv\Scripts\python.exe .claude\scripts\ha.py state climate.living_room                      # state and attributes (hvac_modes...)
+.venv\Scripts\python.exe .claude\scripts\ha.py call light turn_on '{"entity_id": "light.desk"}'
+```
+
+Modes the device does not support are refused with the list of supported ones; `--dry-run` only prints the requests. Locks, alarms, gates and garages are refused without `--confirmed` — Achaja asks you aloud first.
+
 `setup/ha_areas.py` also helps tidy the home: `dump` lists areas and entities with no room assigned, `apply plan.json` assigns devices to areas — Assist then understands commands like "turn off the lights in the bedroom" much better.
 
 ## Mail (optional)
