@@ -313,6 +313,40 @@ def ends_with(text, words, threshold):
     return bool(parts) and is_end_word(parts[-1], words, threshold)
 
 
+class Microphone:
+    """Strumien z mikrofonu, ktory da sie zwolnic i otworzyc ponownie. Dopoki jakis program trzyma mikrofon
+    sluchawek Bluetooth, Windows trzyma je w trybie zestawu glosnomowiacego - muzyka i gry graja cicho albo wcale."""
+
+    def __init__(self, sd, device, callback):
+        self.sd, self.device, self.callback = sd, device, callback
+        self.stream = None
+
+    @property
+    def is_open(self):
+        return self.stream is not None
+
+    def open(self):
+        if self.stream is None:
+            stream = self.sd.RawInputStream(samplerate=16000, blocksize=4000, dtype="int16", channels=1,
+                                            device=self.device, callback=self.callback)
+            stream.start()
+            self.stream = stream
+
+    def close(self):
+        if self.stream is not None:
+            stream, self.stream = self.stream, None
+            stream.stop()
+            stream.close()
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
 def parse_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--pid", type=int)
@@ -543,11 +577,11 @@ def run(args, ui):
         elif kind == "key" and arg:
             press(*arg)
 
-    with sd.RawInputStream(samplerate=16000, blocksize=4000, dtype="int16", channels=1,
-                           device=device, callback=on_audio):
+    with Microphone(sd, device, on_audio) as mic:
         log(f"Mikrofon: {sd.query_devices(device, 'input')['name']}")
         log(f"Stan: {state}")
         shown_state = None
+        mic_retry = 0.0
         while not ui.stop.is_set():
             try:
                 chunk = audio.get(timeout=0.5)
@@ -556,6 +590,23 @@ def run(args, ui):
             if not pid_alive(pid):
                 log("Okno Achai zostalo zamkniete - koncze nasluch.")
                 return "closed"
+            # pauza zwalnia mikrofon: sluchawki Bluetooth wracaja z trybu zestawu glosnomowiacego do stereo
+            # (YouTube, gry); nagrywanie z przycisku w czasie pauzy otwiera go na chwile
+            need_mic = not ui.paused or state != IDLE
+            if need_mic != mic.is_open and time.time() >= mic_retry:
+                try:
+                    if need_mic:
+                        while not audio.empty():
+                            audio.get_nowait()
+                        wake_rec.Reset()
+                        mic.open()
+                        log("Nasluch wznowiony - mikrofon otwarty.")
+                    else:
+                        mic.close()
+                        log("Nasluch wstrzymany - mikrofon zwolniony (sluchawki graja normalnie).")
+                except Exception as exc:  # np. sluchawki odlaczone - sprobujemy znowu za chwile
+                    mic_retry = time.time() + 5
+                    log(f"BLAD mikrofonu: {exc}")
             while not ui.requests.empty():
                 handle(ui.requests.get_nowait())
             if state != shown_state:
