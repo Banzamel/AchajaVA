@@ -75,6 +75,9 @@ if (-not (Test-Path $settings) -or (Get-Content $settings -Raw -Encoding UTF8) -
     Write-Host "Utworzono .claude\settings.json (hooki odpowiedzi głosowej)."
 }
 
+# Folder zaufany w Claude Code - inaczej ukryta sesja przy kazdym starcie pyta o serwer MCP z .mcp.json
+& $venvPython (Join-Path $root "setup\trust.py") $root
+
 # 6. Achaja.exe (okno programu bez konsoli) - instalator .exe przynosi gotowy plik, z kodu źródłowego go kompilujemy
 $exe = Join-Path $root "Achaja.exe"
 if (-not (Test-Path $exe)) {

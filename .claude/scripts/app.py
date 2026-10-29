@@ -112,6 +112,7 @@ STATE_COLORS = {"idle": "green", "wake": "red", "rec": "red", "busy": "orange", 
 # klawisze pod podgladem terminala - odpowiedzi w oknach wyboru Claude Code
 TERM_KEYS = (("↑", ["up"]), ("↓", ["down"]), ("Enter", ["enter"]), ("Esc", ["esc"]),
              ("1", ["text:1"]), ("2", ["text:2"]), ("3", ["text:3"]))
+TERM_HISTORY = 300  # linie konsoli nad widocznym oknem w zakladce Terminal
 LAYOUT = 2  # zmiana ukladu okna - stara zapamietana geometria (szerokie okno) nie jest wtedy uzywana
 
 
@@ -237,9 +238,10 @@ class App:
         self.state_key = "start"
         self.agent_running = {}
         self.screen = None  # ostatni odczyt konsoli Claude (listener.parse_screen) - watek watch_screen
-        self.markers = self.cfg["wake"].get("recording_markers", ["● REC", "REC · "])
+        self.markers = listener.screen_text(self.cfg)
         self.visible = True
         self.term_shown = None
+        self.term_open = False  # zakladka Terminal na wierzchu - czytamy wtedy tez historie konsoli
         self.dialog_seen = False
 
         self.root = root = tk.Tk()
@@ -424,7 +426,7 @@ class App:
             lines = None
             if pid:
                 try:
-                    lines = console.read_screen(pid)
+                    lines = console.read_screen(pid, TERM_HISTORY if self.term_open else 0)
                 except OSError:
                     pass
             self.screen = listener.parse_screen(lines, self.markers) if lines else None
@@ -434,7 +436,7 @@ class App:
         if not screen:
             text = self.t["term_empty"]
         else:  # dlugie kreski konsoli (120 znakow) zawijalyby sie w waskim oknie
-            text = "\n".join(re.sub(r"─{4,}", "────", line.rstrip()) for line in screen["lines"])
+            text = "\n".join(re.sub(r"─{4,}", "────", line.rstrip()) for line in screen["lines"]).lstrip("\n")
         if text == self.term_shown:
             return
         self.term_shown = text
@@ -878,6 +880,7 @@ class App:
             self.config_mtime = mtime
             self.cfg = load_config()
             self.opts = self.cfg.get("app", {})
+            self.markers = listener.screen_text(self.cfg)
             if self.theme.apply(self.opts.get("theme", "auto")):
                 self.paint()
             self.add_note(self.t["config_changed"])
@@ -897,7 +900,7 @@ class App:
             console.set_visible(pid, False)
         work = read_json(STATE / "achaja_state.json", {})
         waiting = work.get("state") == "waiting" and work.get("kind") == "permission_prompt"
-        if pid and waiting and not self.auto_shown and self.opts.get("show_console_on_prompt", True):
+        if pid and waiting and not self.auto_shown and self.opts.get("show_console_on_prompt", False):
             if not console.is_visible(pid):
                 console.set_visible(pid, True)
                 self.auto_shown = True
@@ -908,6 +911,7 @@ class App:
 
         # stan z nasluchu, hookow sesji i z ekranu konsoli (ekran widzi tez okna wyboru, ktorych hooki nie zglaszaja)
         self.visible = self.root.winfo_viewable()
+        self.term_open = self.visible and self.nb.select() == str(self.term_tab)
         screen = self.screen if pid else None
         busy = work.get("state") == "busy" or bool(screen and screen["busy"])
         if b.state in ("closed", "error", "start"):
@@ -961,7 +965,7 @@ class App:
                 self.live.pack(fill="x", padx=px(12), pady=(0, px(6)), after=self.head)
             elif not live and self.live.winfo_ismapped():
                 self.live.pack_forget()
-        if self.nb.select() == str(self.term_tab):
+        if self.term_open:
             self.show_terminal(screen)
 
         # okno wyboru w konsoli (np. nowy serwer MCP przy starcie) - bez odpowiedzi Achaja nie nagra ani nie odpowie

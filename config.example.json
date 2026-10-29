@@ -19,6 +19,7 @@
     "_wake_isolated": "Słowo wybudzenia musi być wypowiedziane osobno (pauza przed i po). / The wake word must be spoken on its own.",
     "screen_sync": true,
     "_screen_sync": "Sprawdzaj na ekranie Claude Code, czy nagrywa (napis REC), zamiast zgadywać. / Read Claude Code's status bar to know whether it is recording.",
+    "_screen_text": "Opcjonalnie \"screen_text\": napisy Claude Code, po których Achaja rozpoznaje nagrywanie, okna wyboru i pracę; popraw je, gdy Claude Code zmieni interfejs, np. {\"recording\": [\"● REC\"], \"dialog\": [\"Enter to confirm\", \"Do you want to\"], \"busy\": [\"esc to interrupt\"]}. / Optional \"screen_text\": the Claude Code texts used to detect recording, choice dialogs and work - adjust them when Claude Code changes its UI.",
     "beep": true,
     "debug": true
   },
@@ -27,8 +28,8 @@
     "_comment": "Okno aplikacji (app.py). / The app window (app.py).",
     "hide_console": true,
     "_hide_console": "Sesja Claude Code działa w ukrytej konsoli; pokażesz ją z menu Achaja. / Run the Claude Code session in a hidden console; show it from the Achaja menu.",
-    "show_console_on_prompt": true,
-    "_show_console_on_prompt": "Gdy Claude pyta o zgodę, konsola pokazuje się sama i chowa po odpowiedzi. / Show the console while Claude waits for a permission answer.",
+    "show_console_on_prompt": false,
+    "_show_console_on_prompt": "Gdy Claude pyta o zgodę, pokazuj też prawdziwe okno konsoli (odpowiedzieć można w zakładce Terminal). / Also pop up the real console window while Claude waits for a permission answer (the Terminal tab is enough).",
     "theme": "auto",
     "_theme": "Wygląd okien: auto (jak tryb aplikacji w Windows), light albo dark. / Window theme: auto (follows Windows), light or dark.",
     "tray": true,

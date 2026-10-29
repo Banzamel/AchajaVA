@@ -62,8 +62,23 @@ def inject(pid, *keys):
 
 SEPARATOR = re.compile(r"^\s*─{8,}")
 SPINNER = re.compile(r"^\s*[^\w\s]\s+\w[^()]*…")  # "✻ Pondering… (12s · ↓ 1.2k tokens)"
-# okna wyboru Claude Code (zgoda na narzedzie, nowy serwer MCP, zaufanie do folderu) - spacja moglaby w nich cos wybrac
-DIALOG_HINTS = ("Enter to confirm", "Esc to cancel", "Do you want to", "❯ 1.", "Do you trust")
+# napisy Claude Code, po ktorych rozpoznajemy stan konsoli. Gdy Claude Code zmieni interfejs, wystarczy
+# poprawic je w config.json (wake.screen_text) - bez nowej wersji Achai.
+#   recording: pasek nagrywania; dialog: okno wyboru (zgoda na narzedzie, nowy serwer MCP, zaufanie
+#   do folderu - spacja moglaby w nim cos wybrac); busy: Claude pracuje
+SCREEN_TEXT = {
+    "recording": ["● REC", "REC · "],
+    "dialog": ["Enter to confirm", "Esc to cancel", "Do you want to", "❯ 1.", "Do you trust"],
+    "busy": ["esc to interrupt"],
+}
+
+
+def screen_text(cfg):
+    words = dict(SCREEN_TEXT)
+    if cfg["wake"].get("recording_markers"):  # starsza nazwa ustawienia
+        words["recording"] = cfg["wake"]["recording_markers"]
+    words.update(cfg["wake"].get("screen_text") or {})
+    return words
 
 
 def claude_screen(pid):
@@ -79,14 +94,15 @@ def claude_screen(pid):
     return result.stdout.splitlines() if result.returncode == 0 else None
 
 
-def parse_screen(lines, markers):
+def parse_screen(lines, words):
     """Co widac w konsoli Claude: rec (pasek "● REC · tap to send"), input (tekst w polu - takze
-    dyktowany na zywo), activity (linia "✻ Mysle… (12s · esc to interrupt)"), dialog (okno wyboru)."""
+    dyktowany na zywo), activity (linia "✻ Mysle… (12s · esc to interrupt)"), dialog (okno wyboru).
+    words: napisy z screen_text(cfg)."""
     body = list(lines)
     while body and not body[-1].strip():
         body.pop()
     nonempty = [line for line in body if line.strip()]  # pod paskiem bywa pusto
-    rec = any(m in line for line in nonempty[-6:] for m in markers)
+    rec = any(m in line for line in nonempty[-6:] for m in words["recording"])
     seps = [i for i, line in enumerate(body) if SEPARATOR.match(line)]
     text = ""
     if len(seps) >= 2 and seps[-1] - seps[-2] <= 12:  # pole wpisywania jest miedzy dwiema ostatnimi kreskami
@@ -96,18 +112,21 @@ def parse_screen(lines, markers):
         if text.startswith('Try "'):  # podpowiedz pustego pola
             text = ""
     above = body[:seps[-2]] if len(seps) >= 2 else body
-    activity = next((line.strip() for line in reversed(above) if SPINNER.match(line)), "")
-    activity = re.sub(r"\s*·?\s*esc to interrupt", "", activity).replace("()", "").strip(" ·")
-    busy = bool(activity) or any("esc to interrupt" in line for line in nonempty[-8:])
-    dialog = not rec and any(h in line for line in nonempty[-16:] for h in DIALOG_HINTS)
+    # tylko tuz nad polem - wyzej (w historii) zostaja stare linie
+    activity = next((line.strip() for line in reversed(above[-12:]) if SPINNER.match(line)), "")
+    for m in words["busy"]:
+        activity = re.sub(r"\s*·?\s*" + re.escape(m), "", activity)
+    activity = activity.replace("()", "").strip(" ·")
+    busy = bool(activity) or any(m in line for line in nonempty[-8:] for m in words["busy"])
+    dialog = not rec and any(h in line for line in nonempty[-16:] for h in words["dialog"])
     return {"lines": body, "rec": rec, "input": text, "activity": activity, "busy": busy, "dialog": dialog}
 
 
-def claude_recording(pid, markers):
+def claude_recording(pid, words):
     """Czy Claude Code nagrywa - wg paska stanu ("● REC · tap to send").
     None, gdy ekranu nie da sie odczytac (wtedy listener zgaduje jak dawniej)."""
     lines = claude_screen(pid)
-    return None if lines is None else parse_screen(lines, markers)["rec"]
+    return None if lines is None else parse_screen(lines, words)["rec"]
 
 
 def wake_heard(result, phrases, min_conf, isolated):
@@ -382,7 +401,7 @@ def run(args, ui):
     wake_conf = cfg["wake"].get("wake_confidence", 0.8)
     wake_isolated = cfg["wake"].get("wake_isolated", True)
     # synchronizacja z ekranem Claude Code: spacja przelacza nagrywanie, wiec najpierw sprawdzamy, co jest
-    markers = cfg["wake"].get("recording_markers", ["● REC", "REC · "])
+    markers = screen_text(cfg)
     screen_sync = cfg["wake"].get("screen_sync", True)
     last_sync, last_inject, screen_ok = 0.0, 0.0, False
 
@@ -467,10 +486,17 @@ def run(args, ui):
         to_idle("Anulowano.")
 
     def submit(text):
-        """Wpisuje tekst i wysyla. Claude Code bierze szybka serie znakow za wklejenie - Enter w tej samej
-        serii zostawal czasem w polu jako nowa linia, wiec Enter idzie osobno i w razie potrzeby jeszcze raz."""
+        """Wpisuje tekst i wysyla. Claude Code czasem pomija pierwszy Enter po wpisanym tekscie (takze gdy
+        tekst juz stoi w polu), wiec sprawdzamy ekran i w razie potrzeby naciskamy Enter jeszcze raz."""
         press("ctrl+u", "text:" + text)
-        time.sleep(0.4)
+        # Enter dopiero, gdy tekst stoi w polu
+        until = time.time() + 2.0
+        while time.time() < until:
+            time.sleep(0.2)
+            screen = screen_now()
+            if not screen or text[:20] in screen["input"]:
+                break
+        time.sleep(0.5)
         press("enter")
         for _ in range(2):
             time.sleep(1.0)

@@ -157,8 +157,8 @@ def write_keys(pid, keys):
             kernel32.CloseHandle(handle)
 
 
-def read_screen(pid):
-    """Widoczne linie okna konsoli procesu pid."""
+def read_screen(pid, history=0):
+    """Widoczne linie okna konsoli procesu pid; history: ile linii bufora nad oknem dolaczyc (podglad w aplikacji)."""
     with attached(pid):
         handle = _open("CONOUT$")
         try:
@@ -170,7 +170,7 @@ def read_screen(pid):
             buf = ctypes.create_unicode_buffer(width)
             read = wintypes.DWORD(0)
             lines = []
-            for y in range(win.Top, win.Bottom + 1):
+            for y in range(max(0, win.Top - history), win.Bottom + 1):
                 kernel32.ReadConsoleOutputCharacterW(handle, buf, width, COORD(win.Left, y), ctypes.byref(read))
                 lines.append(buf.value[:read.value].rstrip())
             return lines
