@@ -130,15 +130,20 @@ def claude_recording(pid, words):
 
 
 def wake_heard(result, phrases, min_conf, isolated):
-    """Fraza wybudzenia w zakonczonej wypowiedzi, kazde jej slowo z pewnoscia >= min_conf.
-    isolated: wypowiedz to sama fraza (bez [unk] obok) - "haha to ja" sie nie liczy."""
+    """Fraza wybudzenia w zakonczonej wypowiedzi, jej slowa z pewnoscia >= min_conf.
+    isolated: wypowiedz to sama fraza (bez [unk] obok) - "haha to ja" sie nie liczy.
+    Warianty tej samej frazy ("aha ja", "a ha ja", "acha ja") dziela miedzy siebie pewnosc slow, ktorymi
+    sie roznia (np. "aha" dostaje 0.5) - dla tych slow prog dzielimy przez liczbe wariantow. Slowa wspolne
+    wszystkim wariantom ("ja") musza miec pelny prog."""
     text = result.get("text", "")
     words = result.get("result", [])
+    common = set.intersection(*(set(p.split()) for p in phrases)) if phrases else set()
     for p in phrases:
         if (text != p) if isolated else (f" {p} " not in f" {text} "):
             continue
-        confs = [w.get("conf", 0) for w in words if w.get("word") in p.split()]
-        if confs and min(confs) >= min_conf:
+        ok = [w.get("conf", 0) >= (min_conf if w.get("word") in common else min_conf / len(phrases))
+              for w in words if w.get("word") in p.split()]
+        if ok and all(ok):
             return True
     return False
 
