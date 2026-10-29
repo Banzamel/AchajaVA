@@ -84,7 +84,7 @@ Name: "ha"; Description: "{cm:CompHA}"; Types: full
 
 [Tasks]
 Name: "autostart"; Description: "{cm:TaskAutostart}"
-Name: "desktopicon"; Description: "{cm:TaskDesktop}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:TaskDesktop}"
 
 [Files]
 Source: "..\build\app\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
