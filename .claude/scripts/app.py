@@ -21,6 +21,7 @@ import subprocess
 import threading
 import time
 
+import avatar
 import listener
 import theme
 import update
@@ -63,6 +64,12 @@ TEXT = {
         "copy": "Kopiuj", "empty_title": "Cześć, tu Achaja",
         "empty": "Powiedz słowo wybudzenia albo napisz wiadomość poniżej.",
         "agent_done": "zakończył pracę", "agent_pick": "Wybierz agenta z listy", "menu_tip": "Menu",
+        "term": "Terminal", "st_wake": "Słucham…", "st_dialog": "Claude czeka na decyzję — zakładka Terminal",
+        "busy_for": "Myślę… {}", "live_rec": "Mów… zakończ słowem „{}”",
+        "dialog_note": "Claude czeka na decyzję na ekranie — odpowiedz w zakładce Terminal (strzałki, Enter, Esc).",
+        "dialog_say": "Claude czeka na decyzję na ekranie, w zakładce Terminal.",
+        "rec_failed": "Claude nie włączył nagrywania — zobacz zakładkę Terminal.",
+        "term_empty": "Sesja Claude jeszcze nie działa.", "term_console": "Okno konsoli",
     },
     "en": {
         "chat": "Conversation", "agents": "Agents", "log": "Log", "send": "Send", "talk": "Talk",
@@ -90,12 +97,22 @@ TEXT = {
         "copy": "Copy", "empty_title": "Hi, this is Achaja",
         "empty": "Say the wake word or type a message below.",
         "agent_done": "finished", "agent_pick": "Pick an agent from the list", "menu_tip": "Menu",
+        "term": "Terminal", "st_wake": "Listening…", "st_dialog": "Claude is waiting for a choice — Terminal tab",
+        "busy_for": "Thinking… {}", "live_rec": "Speak… finish with “{}”",
+        "dialog_note": "Claude is waiting for a choice on screen — answer in the Terminal tab (arrows, Enter, Esc).",
+        "dialog_say": "Claude is waiting for a choice on screen, in the Terminal tab.",
+        "rec_failed": "Claude did not start recording — see the Terminal tab.",
+        "term_empty": "The Claude session is not running yet.", "term_console": "Console window",
     },
 }
-# kolor kropki stanu (klucz palety z theme.py); stany "w ruchu" pulsuja
-STATE_COLORS = {"idle": "green", "rec": "red", "busy": "orange", "wait": "orange", "speak": "accent",
-                "paused": "grey", "start": "grey", "closed": "grey", "error": "red"}
-PULSING = ("rec", "busy", "wait", "speak", "start")
+# kolor stanu (klucz palety z theme.py) - awatar, opis stanu
+STATE_COLORS = {"idle": "green", "wake": "red", "rec": "red", "busy": "orange", "wait": "orange",
+                "dialog": "orange", "speak": "accent", "paused": "grey", "start": "grey", "closed": "grey",
+                "error": "red"}
+# klawisze pod podgladem terminala - odpowiedzi w oknach wyboru Claude Code
+TERM_KEYS = (("↑", ["up"]), ("↓", ["down"]), ("Enter", ["enter"]), ("Esc", ["esc"]),
+             ("1", ["text:1"]), ("2", ["text:2"]), ("3", ["text:3"]))
+LAYOUT = 2  # zmiana ukladu okna - stara zapamietana geometria (szerokie okno) nie jest wtedy uzywana
 
 
 class Bridge:
@@ -108,6 +125,8 @@ class Bridge:
         self.hidden = hidden
         self.state = "start"
         self.pid = None
+        self.heard = ""  # co slyszy Vosk w trakcie nagrywania
+        self.problem = None  # "dialog" / "rec_failed" - ustawia nasluch, odbiera tick()
 
     def on_state(self, state, pid):
         self.state, self.pid = state, pid
@@ -216,15 +235,19 @@ class App:
         self.chat_width = 0
         self.relayout_job = None
         self.state_key = "start"
-        self.phase = 0
         self.agent_running = {}
+        self.screen = None  # ostatni odczyt konsoli Claude (listener.parse_screen) - watek watch_screen
+        self.markers = self.cfg["wake"].get("recording_markers", ["● REC", "REC · "])
+        self.visible = True
+        self.term_shown = None
+        self.dialog_seen = False
 
         self.root = root = tk.Tk()
         root.withdraw()  # pokazujemy dopiero gotowe okno (bez mrugniecia jasnym tlem)
         root.title("Achaja")
-        geo = read_json(WINDOW_FILE, {}).get("geometry")
-        root.geometry(geo or "820x660")
-        root.minsize(560, 460)
+        saved = read_json(WINDOW_FILE, {})
+        root.geometry(saved.get("geometry") if saved.get("layout") == LAYOUT else "440x780")
+        root.minsize(360, 520)
         if ICON.exists():
             root.iconbitmap(default=str(ICON))
         self.theme = theme.Theme(root, self.opts.get("theme", "auto"))
@@ -236,9 +259,11 @@ class App:
         self.nb = nb = ttk.Notebook(root)
         nb.pack(fill="both", expand=True, padx=px(8), pady=(px(2), px(8)))
         self.build_chat(nb)
+        self.build_terminal(nb)
         self.build_agents(nb)
         self.build_log(nb)
         self.paint()
+        threading.Thread(target=self.watch_screen, daemon=True).start()
 
         self.start_tray()
         if args.minimized:
@@ -275,26 +300,32 @@ class App:
         self.menu.tk_popup(b.winfo_rootx(), b.winfo_rooty() + b.winfo_height())
 
     def build_header(self):
-        tk, ttk, t, px = self.tk, self.ttk, self.t, self.theme.px
-        self.head = head = ttk.Frame(self.root, padding=(px(14), px(12), px(12), px(8)))
+        ttk, t, px = self.ttk, self.t, self.theme.px
+        # awatar + imie + stan (slucha / nagrywa / mysli / mowi) - czytelne z daleka
+        self.head = head = ttk.Frame(self.root, padding=(px(12), px(10), px(8), px(4)))
         head.pack(fill="x")
-        # pigulka stanu: pulsujaca kropka + opis (nasluch / nagrywa / mysli / mowi)
-        pill = ttk.Frame(head, style="Pill.TFrame", padding=(px(8), px(5), px(16), px(5)))
-        size = px(22)
-        self.orb = tk.Canvas(pill, width=size, height=size, highlightthickness=0, borderwidth=0)
-        self.orb_ring = self.orb.create_oval(0, 0, 0, 0, outline="", fill="")
-        self.orb_dot = self.orb.create_oval(0, 0, 0, 0, outline="", fill="")
-        self.orb.pack(side="left", padx=(0, px(6)))
-        self.status = ttk.Label(pill, text=t["st_start"], style="Status.TLabel")
-        self.status.pack(side="left")
+        self.avatar = avatar.Avatar(head, px(72))
+        self.avatar.widget.pack(side="left")
         self.menu_btn = ttk.Button(head, text="☰", style="Ghost.TButton", width=2, command=self.show_menu)
-        self.menu_btn.pack(side="right", padx=(px(6), 0))
-        self.pause_btn = ttk.Button(head, text=t["pause"], command=self.toggle_pause)
-        self.pause_btn.pack(side="right")
-        self.cancel_btn = ttk.Button(head, text=t["cancel"], command=lambda: self.request("cancel"))
-        self.talk_btn = ttk.Button(head, text=t["talk"], style="Accent.TButton", command=self.talk)
-        self.talk_btn.pack(side="right", padx=(0, px(8)))
-        pill.pack(side="left")  # po przyciskach - w waskim oknie scisnie sie opis stanu, nie przyciski
+        self.menu_btn.pack(side="right", anchor="n")
+        info = ttk.Frame(head)
+        info.pack(side="left", fill="x", expand=True, padx=(px(10), 0))
+        ttk.Label(info, text=t["achaja"], style="Brand.TLabel").pack(anchor="w")
+        self.status = ttk.Label(info, text=t["st_start"], style="State.TLabel")
+        self.status.pack(anchor="w", fill="x")
+        # pasek "na zywo": dyktowany tekst albo to, czym Claude sie teraz zajmuje
+        self.live = ttk.Frame(self.root, style="Banner.TFrame", padding=(px(12), px(7)))
+        self.live_label = ttk.Label(self.live, style="Live.TLabel", justify="left")
+        self.live_label.pack(fill="x")
+        self.live.bind("<Configure>", lambda e: self.live_label.configure(wraplength=max(100, e.width - px(28))))
+        self.live_shown = None
+        self.bar = bar = ttk.Frame(self.root, padding=(px(12), px(2), px(12), px(4)))
+        bar.pack(fill="x")
+        self.talk_btn = ttk.Button(bar, text="🎤  " + t["talk"], style="Accent.TButton", command=self.talk)
+        self.talk_btn.pack(side="left", fill="x", expand=True)
+        self.cancel_btn = ttk.Button(bar, text=t["cancel"], command=lambda: self.request("cancel"))
+        self.pause_btn = ttk.Button(bar, text=t["pause"], command=self.toggle_pause)
+        self.pause_btn.pack(side="left", padx=(px(6), 0))
         # pasek aktualizacji - pokazuje sie, gdy jest nowa wersja
         self.upd_bar = ttk.Frame(self.root, style="Banner.TFrame", padding=(px(14), px(6), px(6), px(6)))
         self.upd_label = ttk.Label(self.upd_bar, style="Banner.TLabel")
@@ -320,9 +351,9 @@ class App:
         self.chat.bind("<MouseWheel>", self.on_chat_wheel)
 
         self.entry_card = card
-        ttk.Button(card, text=t["send"] + "  ➤", style="Accent.TButton", command=self.send_text).pack(
+        ttk.Button(card, text="➤", style="Accent.TButton", width=3, command=self.send_text).pack(
             side="right", anchor="s")
-        self.entry = tk.Text(card, height=3, wrap="word", font=(FONT, 10), padx=px(6), pady=px(4))
+        self.entry = tk.Text(card, height=2, wrap="word", font=(FONT, 10), padx=px(6), pady=px(4))
         self.entry.pack(side="left", fill="both", expand=True, padx=(0, px(8)))
         self.entry.bind("<Return>", self.on_enter)
         self.entry.bind("<FocusIn>", lambda e: (self.placeholder(False), card.state(["focus"])))
@@ -341,29 +372,79 @@ class App:
         tk, ttk, t, px = self.tk, self.ttk, self.t, self.theme.px
         self.agents_tab = frame = ttk.Frame(nb, padding=(px(8), 0, px(8), px(4)))
         nb.add(frame, text=t["agents"])
-        left = ttk.Frame(frame, style="Card.TFrame", padding=px(8))
-        left.pack(side="left", fill="y")
-        ttk.Button(left, text="■  " + t["stop_agent"], command=self.stop_agent).pack(
-            side="bottom", fill="x", pady=(px(8), 0))
-        self.agent_list = tk.Listbox(left, width=26, exportselection=False)
-        self.agent_list.pack(fill="both", expand=True)
+        # waskie okno: lista agentow u gory, pod nia przebieg pracy wybranego
+        top_card = ttk.Frame(frame, style="Card.TFrame", padding=px(6))
+        top_card.pack(fill="x")
+        self.agent_list = tk.Listbox(top_card, height=4, exportselection=False)
+        self.agent_list.pack(fill="x")
         self.agent_list.bind("<<ListboxSelect>>", lambda e: self.show_agent(force=True))
-        right = ttk.Frame(frame, style="Card.TFrame", padding=(px(12), px(8), px(4), px(8)))
-        right.pack(side="left", fill="both", expand=True, padx=(px(8), 0))
+        right = ttk.Frame(frame, style="Card.TFrame", padding=(px(10), px(8), px(4), px(8)))
+        right.pack(fill="both", expand=True, pady=(px(8), 0))
         top = ttk.Frame(right, style="Plain.TFrame")
         top.pack(fill="x", pady=(0, px(6)))
+        ttk.Button(top, text="■", style="Key.TButton", command=self.stop_agent).pack(side="right")
         self.agent_title = ttk.Label(top, style="CardTitle.TLabel", text=t["agent_pick"])
         self.agent_title.pack(side="left")
         self.agent_sub = ttk.Label(top, style="CardMuted.TLabel")
-        self.agent_sub.pack(side="left", padx=(px(10), 0))
+        self.agent_sub.pack(side="left", padx=(px(8), 0))
         self.agent_text = tk.Text(right, wrap="word", state="disabled", padx=px(4), pady=px(2),
                                   font=(self.theme.mono, 9))
         sb = ttk.Scrollbar(right, command=self.agent_text.yview, style="Card.Vertical.TScrollbar")
         self.agent_text.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.agent_text.pack(side="left", fill="both", expand=True)
-        self.agent_names, self.agent_shown = [], (None, 0)
+        self.agent_names, self.agent_shown = [], (False, -1)  # pierwszy odczyt zawsze rysuje
         self.agents_label = t["agents"]
+
+    def build_terminal(self, nb):
+        """Podglad ukrytej konsoli Claude na zywo + klawisze do okien wyboru (zgody, nowy serwer MCP)."""
+        tk, ttk, t, px = self.tk, self.ttk, self.t, self.theme.px
+        self.term_tab = frame = ttk.Frame(nb, padding=(px(8), 0, px(8), px(4)))
+        nb.add(frame, text=t["term"])
+        keys = ttk.Frame(frame)
+        keys.pack(side="bottom", fill="x", pady=(px(6), 0))
+        for label, seq in TERM_KEYS:
+            ttk.Button(keys, text=label, style="Key.TButton", width=len(label) + 2,
+                       command=lambda seq=seq: self.request(("key", seq))).pack(side="left", padx=(0, px(4)))
+        ttk.Button(keys, text="⧉", style="Key.TButton", width=3, command=self.toggle_console).pack(side="right")
+        card = ttk.Frame(frame, style="Card.TFrame", padding=(px(10), px(8), px(4), px(8)))
+        card.pack(fill="both", expand=True)
+        self.term_text = tk.Text(card, wrap="word", state="disabled", padx=px(2), pady=px(2),
+                                 font=(self.theme.mono, 8))
+        sb = ttk.Scrollbar(card, command=self.term_text.yview, style="Card.Vertical.TScrollbar")
+        self.term_text.configure(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self.term_text.pack(side="left", fill="both", expand=True)
+
+    def watch_screen(self):
+        """Watek: co chwile czyta ekran ukrytej konsoli Claude (stan, dyktowany tekst, okna wyboru)."""
+        import console
+        while not self.quitting:
+            pid = self.claude_pid()
+            lines = None
+            if pid:
+                try:
+                    lines = console.read_screen(pid)
+                except OSError:
+                    pass
+            self.screen = listener.parse_screen(lines, self.markers) if lines else None
+            time.sleep(0.35 if self.visible else 1.5)
+
+    def show_terminal(self, screen):
+        if not screen:
+            text = self.t["term_empty"]
+        else:  # dlugie kreski konsoli (120 znakow) zawijalyby sie w waskim oknie
+            text = "\n".join(re.sub(r"─{4,}", "────", line.rstrip()) for line in screen["lines"])
+        if text == self.term_shown:
+            return
+        self.term_shown = text
+        at_end = self.term_text.yview()[1] > 0.98
+        self.term_text.configure(state="normal")
+        self.term_text.delete("1.0", "end")
+        self.term_text.insert("end", text)
+        self.term_text.configure(state="disabled")
+        if at_end:
+            self.term_text.see("end")
 
     def build_log(self, nb):
         tk, ttk, px = self.tk, self.ttk, self.theme.px
@@ -385,10 +466,10 @@ class App:
         th.text(self.chat, surface=False)
         th.text(self.entry)
         th.text(self.agent_text)
+        th.text(self.term_text)
         th.text(self.log_text)
         th.listbox(self.agent_list)
         th.menu(self.menu)
-        self.orb.configure(background=p["surface"])
         self.chat.tag_configure("who", foreground=p["muted"], font=(FONT_BOLD, 9), spacing1=th.px(12))
         self.chat.tag_configure("meta", foreground=p["faint"], font=(FONT, 8), spacing1=th.px(12))
         self.chat.tag_configure("bubble", spacing1=th.px(3), spacing3=th.px(2))
@@ -501,7 +582,7 @@ class App:
     def bubble_width(self):
         width = self.chat.winfo_width()
         if width < 50:  # okno jeszcze niepokazane
-            width = max(self.root.winfo_width(), 800) - self.theme.px(60)
+            width = max(self.root.winfo_width(), 400) - self.theme.px(40)
         return int((width - self.theme.px(40)) * 0.8)
 
     def scroll_chat_end(self):
@@ -613,7 +694,7 @@ class App:
         if name:
             threading.Thread(target=subprocess.run, daemon=True, kwargs={
                 "args": [str(PYTHON), str(SCRIPTS / "agent.py"), "stop", name],
-                "creationflags": CREATE_NO_WINDOW, "capture_output": True}).start()
+                "creationflags": CREATE_NO_WINDOW, "capture_output": True, "stdin": subprocess.DEVNULL}).start()
 
     # --- nasluch ---
     def start_listener(self, resume):
@@ -825,31 +906,75 @@ class App:
             console.set_visible(pid, False)
             self.auto_shown = False
 
+        # stan z nasluchu, hookow sesji i z ekranu konsoli (ekran widzi tez okna wyboru, ktorych hooki nie zglaszaja)
+        self.visible = self.root.winfo_viewable()
+        screen = self.screen if pid else None
+        busy = work.get("state") == "busy" or bool(screen and screen["busy"])
         if b.state in ("closed", "error", "start"):
             key = b.state
-        elif b.state == "recording":
+        elif b.state == "recording" or (screen and screen["rec"]):
             key = "rec"
+        elif b.state == "wake":
+            key = "wake"
         elif waiting:
             key = "wait"
+        elif screen and screen["dialog"]:
+            key = "dialog"
         elif listener.speaking():
             key = "speak"
-        elif work.get("state") == "busy":
+        elif busy:
             key = "busy"
         elif b.paused:
             key = "paused"
         else:
             key = "idle"
         self.state_key = key
-        self.status.configure(text=self.t["st_" + key])
+        status = self.t["st_" + key]
+        if key == "busy":
+            secs = int(time.time() - work.get("since", time.time())) if work.get("state") == "busy" else 0
+            status = self.t["busy_for"].format(f"{secs // 60}:{secs % 60:02d}" if secs else "").strip()
+        self.status.configure(text=status, foreground=self.theme.p[STATE_COLORS[key]])
         self.pause_btn.configure(text=self.t["resume"] if b.paused else self.t["pause"])
         if key == "rec":
-            self.talk_btn.configure(text=self.t["send_rec"])
+            self.talk_btn.configure(text="➤  " + self.t["send_rec"])
             if not self.cancel_btn.winfo_ismapped():
-                self.cancel_btn.pack(side="right", padx=(0, self.theme.px(8)), before=self.talk_btn)
+                self.cancel_btn.pack(side="left", padx=(self.theme.px(6), 0), after=self.talk_btn)
         else:
-            self.talk_btn.configure(text=self.t["talk"])
+            self.talk_btn.configure(text="🎤  " + self.t["talk"])
             if self.cancel_btn.winfo_ismapped():
                 self.cancel_btn.pack_forget()
+
+        # pasek na zywo: co dyktujesz (tekst z pola Claude, a zanim sie pojawi - to, co slyszy Vosk)
+        if key == "rec":
+            end = (self.cfg["wake"].get("end") or ["wykonaj"])[0]
+            heard = (screen and screen["input"]) or b.heard
+            live = f"„{heard}”" if heard else self.t["live_rec"].format(end)
+        elif key == "busy":
+            live = (screen and screen["activity"]) or ""
+        else:
+            live = ""
+        if live != self.live_shown:
+            self.live_shown = live
+            self.live_label.configure(text=live)
+            if live and not self.live.winfo_ismapped():
+                px = self.theme.px
+                self.live.pack(fill="x", padx=px(12), pady=(0, px(6)), after=self.head)
+            elif not live and self.live.winfo_ismapped():
+                self.live.pack_forget()
+        if self.nb.select() == str(self.term_tab):
+            self.show_terminal(screen)
+
+        # okno wyboru w konsoli (np. nowy serwer MCP przy starcie) - bez odpowiedzi Achaja nie nagra ani nie odpowie
+        problem, b.problem = b.problem, None
+        if key == "dialog" or problem:
+            if not self.dialog_seen:
+                self.dialog_seen = True
+                self.nb.select(self.term_tab)
+                self.add_note(self.t["rec_failed"] if problem == "rec_failed" else self.t["dialog_note"])
+                if key == "dialog" and not waiting:  # o zgodzie na narzedzie mowi juz hook Notification
+                    listener.say(self.t["dialog_say"])
+        else:
+            self.dialog_seen = False
         # zamknieta / zabita sesja Claude wraca sama (z ta sama rozmowa), ale nie czesciej niz co 30 s
         if (key == "closed" and self.opts.get("restart_closed_session", True) and not self.quitting
                 and time.time() - self.last_start > 30):
@@ -857,22 +982,13 @@ class App:
             self.start_listener(resume=True)
 
     def animate(self):
-        """Kropka stanu: rozchodzaca sie fala, gdy Achaja nagrywa, mysli albo mowi."""
-        p, key = self.theme.p, self.state_key
-        color, bg = p[STATE_COLORS[key]], p["surface"]
-        size = int(self.orb["width"])
-        c, dot = size / 2, size * 0.22
-        steps = 16 if key == "rec" else 26
-        self.phase = (self.phase + 1) % steps
-        if key in PULSING:
-            f = self.phase / steps
-            ring, ring_color = dot + f * (c - dot), theme.blend(color, bg, 0.35 + 0.65 * f)
-        else:
-            ring, ring_color = dot * 1.7, theme.blend(color, bg, 0.75)
-        self.orb.coords(self.orb_ring, c - ring, c - ring, c + ring, c + ring)
-        self.orb.itemconfigure(self.orb_ring, fill=ring_color)
-        self.orb.coords(self.orb_dot, c - dot, c - dot, c + dot, c + dot)
-        self.orb.itemconfigure(self.orb_dot, fill=color)
+        """Awatar: slucha, mysli, mowi albo czeka - animacja tylko przy widocznym oknie."""
+        if self.visible:
+            p, key = self.theme.p, self.state_key
+            try:
+                self.avatar.draw(key, p[STATE_COLORS[key]], p)
+            except Exception as exc:
+                self.logs.put(f"{time.strftime('%H:%M:%S')} BLAD awatara: {exc!r}")
         self.root.after(60, self.animate)
 
     # --- okno, zasobnik, koniec ---
@@ -925,7 +1041,7 @@ class App:
         if ask and not messagebox.askyesno("Achaja", self.t["quit_ask"], parent=self.root):
             return
         self.quitting = True
-        write_json(WINDOW_FILE, {"geometry": self.root.geometry()})
+        write_json(WINDOW_FILE, {"geometry": self.root.geometry(), "layout": LAYOUT})
         pid = self.claude_pid()
         if self.bridge:
             self.bridge.stop.set()
@@ -933,7 +1049,7 @@ class App:
             import console
             if not console.is_visible(pid):  # ukryta sesja bez okna zostalaby w tle na zawsze
                 subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
-                               creationflags=CREATE_NO_WINDOW)
+                               stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
         if self.tray:
             self.tray.stop()
         self.root.destroy()

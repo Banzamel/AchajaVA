@@ -19,6 +19,7 @@ import json
 import os
 import queue
 import random
+import re
 import shutil
 import subprocess
 import time
@@ -59,23 +60,54 @@ def inject(pid, *keys):
     return result.returncode == 0
 
 
-def claude_recording(pid, markers):
-    """Czy Claude Code nagrywa - wg paska stanu ("● REC · tap to send").
-    None, gdy ekranu nie da sie odczytac (wtedy listener zgaduje jak dawniej)."""
+SEPARATOR = re.compile(r"^\s*─{8,}")
+SPINNER = re.compile(r"^\s*[^\w\s]\s+\w[^()]*…")  # "✻ Pondering… (12s · ↓ 1.2k tokens)"
+# okna wyboru Claude Code (zgoda na narzedzie, nowy serwer MCP, zaufanie do folderu) - spacja moglaby w nich cos wybrac
+DIALOG_HINTS = ("Enter to confirm", "Esc to cancel", "Do you want to", "❯ 1.", "Do you trust")
+
+
+def claude_screen(pid):
+    """Widoczne linie konsoli Claude; None, gdy ekranu nie da sie odczytac."""
     if INPROCESS:
         import console
         try:
-            screen = console.read_screen(pid)
+            return console.read_screen(pid)
         except OSError:
             return None
-        lines = [line for line in screen if line.strip()]
-        return any(m in line for line in lines[-6:] for m in markers)
     result = subprocess.run([str(PYTHON), str(SCRIPTS / "screen.py"), str(pid)], creationflags=CREATE_NO_WINDOW,
                             capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if result.returncode != 0:
-        return None
-    lines = [line for line in result.stdout.splitlines() if line.strip()]  # pod paskiem bywa pusto
-    return any(m in line for line in lines[-6:] for m in markers)
+    return result.stdout.splitlines() if result.returncode == 0 else None
+
+
+def parse_screen(lines, markers):
+    """Co widac w konsoli Claude: rec (pasek "● REC · tap to send"), input (tekst w polu - takze
+    dyktowany na zywo), activity (linia "✻ Mysle… (12s · esc to interrupt)"), dialog (okno wyboru)."""
+    body = list(lines)
+    while body and not body[-1].strip():
+        body.pop()
+    nonempty = [line for line in body if line.strip()]  # pod paskiem bywa pusto
+    rec = any(m in line for line in nonempty[-6:] for m in markers)
+    seps = [i for i, line in enumerate(body) if SEPARATOR.match(line)]
+    text = ""
+    if len(seps) >= 2 and seps[-1] - seps[-2] <= 12:  # pole wpisywania jest miedzy dwiema ostatnimi kreskami
+        text = " ".join(line.strip() for line in body[seps[-2] + 1:seps[-1]])
+        text = re.sub(r"^[>❯]\s?", "", text)
+        text = re.sub(r"[▀-▟\x00-\x1f]", "", text).strip()  # kursor, wskaznik glosnosci, znaki sterujace
+        if text.startswith('Try "'):  # podpowiedz pustego pola
+            text = ""
+    above = body[:seps[-2]] if len(seps) >= 2 else body
+    activity = next((line.strip() for line in reversed(above) if SPINNER.match(line)), "")
+    activity = re.sub(r"\s*·?\s*esc to interrupt", "", activity).replace("()", "").strip(" ·")
+    busy = bool(activity) or any("esc to interrupt" in line for line in nonempty[-8:])
+    dialog = not rec and any(h in line for line in nonempty[-16:] for h in DIALOG_HINTS)
+    return {"lines": body, "rec": rec, "input": text, "activity": activity, "busy": busy, "dialog": dialog}
+
+
+def claude_recording(pid, markers):
+    """Czy Claude Code nagrywa - wg paska stanu ("● REC · tap to send").
+    None, gdy ekranu nie da sie odczytac (wtedy listener zgaduje jak dawniej)."""
+    lines = claude_screen(pid)
+    return None if lines is None else parse_screen(lines, markers)["rec"]
 
 
 def wake_heard(result, phrases, min_conf, isolated):
@@ -270,6 +302,8 @@ class Console:
     """Nasluch bez aplikacji okienkowej: nic nie wstrzymuje, nic nie zamawia z zewnatrz."""
     hidden = False
     paused = False
+    heard = ""  # co slyszy Vosk w trakcie nagrywania (aplikacja pokazuje to na zywo)
+    problem = None  # "dialog" / "rec_failed" - aplikacja pokazuje wtedy zakladke Terminal
 
     def __init__(self):
         import threading
@@ -358,6 +392,20 @@ def run(args, ui):
         screen_ok = rec is not None
         return rec
 
+    def screen_now():
+        lines = claude_screen(pid) if screen_sync else None
+        return parse_screen(lines, markers) if lines is not None else None
+
+    def wait_for_recording(timeout=2.5):
+        """Po spacji Claude potrzebuje chwili na pokazanie REC; nieczytelny ekran liczy sie jako sukces."""
+        until = time.time() + timeout
+        while time.time() < until:
+            time.sleep(0.25)
+            rec = claude_recording(pid, markers) if screen_sync else None
+            if rec is None or rec:
+                return True
+        return False
+
     def press(*keys):
         nonlocal last_inject
         last_inject = time.time()
@@ -366,16 +414,31 @@ def run(args, ui):
     def start_recording(reason):
         nonlocal state, started, last_speech, partial_text
         free_rec.Reset()
-        beep(cfg, 880, 120)
         # ctrl+u czysci pole (tap startuje nagrywanie tylko przy pustym polu)
-        partial_text = ""
-        if recording_now():
+        partial_text = ui.heard = ""
+        screen = screen_now()
+        if screen and screen["rec"]:
             # Claude juz nagrywa - spacja by je wylaczyla
+            beep(cfg, 880, 120)
             state, started, last_speech = RECORDING, time.time(), time.time()
             write_json(STATE / "recording.json", {"at": started})
             log(f"{reason} Claude juz nagrywa - nie naciskam spacji. Stan: {state}")
             return
+        if screen and screen["dialog"]:
+            # okno wyboru (np. "New MCP server found") - spacja nic by nie dala albo cos wybrala
+            beep(cfg, 330, 300)
+            ui.problem = "dialog"
+            log(f"{reason} Claude czeka na decyzje w oknie wyboru - nie nagrywam (zakladka Terminal).")
+            return
+        beep(cfg, 880, 120)
         if press("ctrl+u", "space"):
+            if not wait_for_recording():
+                beep(cfg, 330, 300)
+                ui.problem = "rec_failed"
+                now_screen = screen_now()
+                lines = [line.strip() for line in now_screen["lines"] if line.strip()][-4:] if now_screen else []
+                log(f"{reason} Claude nie wlaczyl nagrywania. Na ekranie: {' | '.join(lines)[-300:]}")
+                return
             state, started, last_speech = RECORDING, time.time(), time.time()
             write_json(STATE / "recording.json", {"at": started})  # inne procesy (poczta) nie wchodza w slowo
             log(f"{reason} Stan: {state}")
@@ -385,6 +448,7 @@ def run(args, ui):
         nonlocal state
         wake_rec.Reset()
         state = IDLE
+        ui.heard = ""
         (STATE / "recording.json").unlink(missing_ok=True)
         log(f"{msg} Stan: {state}")
 
@@ -402,11 +466,25 @@ def run(args, ui):
         beep(cfg, 440, 300)
         to_idle("Anulowano.")
 
+    def submit(text):
+        """Wpisuje tekst i wysyla. Claude Code bierze szybka serie znakow za wklejenie - Enter w tej samej
+        serii zostawal czasem w polu jako nowa linia, wiec Enter idzie osobno i w razie potrzeby jeszcze raz."""
+        press("ctrl+u", "text:" + text)
+        time.sleep(0.4)
+        press("enter")
+        for _ in range(2):
+            time.sleep(1.0)
+            screen = screen_now()
+            if not screen or not screen["input"] or text[:20] not in screen["input"]:
+                return
+            log("Tekst nadal czeka w polu Claude - ponawiam Enter.")
+            press("enter")
+
     def new_conversation():
         if recording_now() is not False:
             press("esc")
             time.sleep(0.4)
-        press("ctrl+u", "text:/clear", "enter")
+        submit("/clear")
         beep(cfg, 660, 120)
         beep(cfg, 880, 120)
         to_idle("Nowa rozmowa (/clear).")
@@ -429,7 +507,7 @@ def run(args, ui):
             if state == RECORDING:
                 cancel_recording()
             # Claude Code w trakcie pracy kolejkuje wiadomosc i wysle ja po skonczeniu biezacej
-            press("ctrl+u", "text:" + " ".join(arg.split()), "enter")
+            submit(" ".join(arg.split()))
             log("Wyslano wiadomosc z okna czatu.")
         elif kind == "key" and arg:
             press(*arg)
@@ -496,6 +574,8 @@ def run(args, ui):
                 if wake_heard(result, wake, wake_conf, wake_isolated):
                     stop_speech()
                     (STATE / "followup.json").unlink(missing_ok=True)
+                    ui.on_state("wake", pid)
+                    shown_state = None  # po "Slucham" stan odswiezy sie, takze gdy nagrywanie nie ruszy
                     if wake_replies:
                         reply_to_wake(wake_replies, wake_clips)
                         while not audio.empty():  # to, co mikrofon slyszal w trakcie "Slucham", wyrzucamy
@@ -508,6 +588,7 @@ def run(args, ui):
                 partial = json.loads(free_rec.PartialResult()).get("partial", "").strip()
                 if partial != partial_text:
                     partial_text, partial_since = partial, now
+                    ui.heard = partial
                 if partial:
                     last_speech = now
                 # szybka sciezka: slowo koncowe na koncu i nic nowego przez end_stable sekund
@@ -521,6 +602,7 @@ def run(args, ui):
             if not text:
                 continue
             last_speech = time.time()
+            ui.heard = text
             log(f"  slysze: {text}")
             if ends_with(text, end, end_match):
                 send()

@@ -169,6 +169,8 @@ class Theme:
         style.map("Accent.TButton", foreground=[("disabled", p["bg"])])
         style.configure("Ghost.TButton", padding=(px(6), px(2)), foreground=p["muted"], font=(FONT, 12))
         style.map("Ghost.TButton", foreground=[("active", p["text"])])
+        style.layout("Key.TButton", style.layout("TButton"))  # male klawisze pod podgladem terminala
+        style.configure("Key.TButton", padding=(px(8), px(2)), anchor="center", foreground=p["text"], font=(FONT, 9))
 
         # pola tekstowe i listy rozwijane
         self._element(style, "A.field", (px(40), px(32)), px(6), [
@@ -207,7 +209,7 @@ class Theme:
         style.layout("TNotebook.Tab", [("A.tab", {"sticky": "nsew", "children": [
             ("Notebook.padding", {"sticky": "nsew", "children": [("Notebook.label", {"sticky": ""})]})]})])
         style.configure("TNotebook", background=p["bg"], borderwidth=0, tabmargins=(px(10), px(2), px(10), px(8)))
-        style.configure("TNotebook.Tab", padding=(px(16), px(5)), foreground=p["muted"], font=bold)
+        style.configure("TNotebook.Tab", padding=(px(10), px(5)), foreground=p["muted"], font=bold)
         style.map("TNotebook.Tab", foreground=[("selected", p["accent_text"]), ("active", p["text"])])
         style.layout("TNotebook", [("Notebook.client", {"sticky": "nsew"})])
         style.configure("TNotebook", bordercolor=p["bg"], lightcolor=p["bg"], darkcolor=p["bg"])
@@ -256,6 +258,8 @@ class Theme:
         style.configure("CardMuted.TLabel", background=p["surface"], foreground=p["muted"])
         style.configure("Status.TLabel", background=p["surface"], font=(FONT_BOLD, 10))
         style.configure("Banner.TLabel", background=p["accent_soft"], foreground=p["accent_text"], font=bold)
+        style.configure("Live.TLabel", background=p["accent_soft"], foreground=p["text"], font=(FONT, 10, "italic"))
+        style.configure("State.TLabel", foreground=p["muted"], font=(FONT_BOLD, 10))
         style.configure("Brand.TLabel", font=(FONT_BOLD, 13))
         style.configure("Card.TCheckbutton", background=p["surface"])
         style.configure("TFrame", background=p["bg"])

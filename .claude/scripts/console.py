@@ -12,9 +12,14 @@ kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 user32 = ctypes.WinDLL("user32", use_last_error=True)
 kernel32.GetConsoleWindow.restype = wintypes.HWND
 kernel32.CreateFileW.restype = wintypes.HANDLE
+kernel32.GetStdHandle.argtypes = (wintypes.DWORD,)
+kernel32.GetStdHandle.restype = wintypes.HANDLE
+kernel32.SetStdHandle.argtypes = (wintypes.DWORD, wintypes.HANDLE)
+STD_HANDLES = (0xFFFFFFF6, 0xFFFFFFF5, 0xFFFFFFF4)  # STD_INPUT/OUTPUT/ERROR_HANDLE (-10, -11, -12)
 
 KEY_EVENT = 0x0001
 LEFT_CTRL_PRESSED = 0x0008
+ENHANCED_KEY = 0x0100  # strzalki
 GENERIC_READ = 0x80000000
 GENERIC_WRITE = 0x40000000
 FILE_SHARE_READ = 0x1
@@ -66,6 +71,9 @@ KEYS = {
     "esc": (0x1B, 0x01, "\x1b", 0),
     "backspace": (0x08, 0x0E, "\x08", 0),
     "ctrl+u": (0x55, 0x16, "\x15", LEFT_CTRL_PRESSED),
+    "up": (0x26, 0x48, "\0", ENHANCED_KEY),
+    "down": (0x28, 0x50, "\0", ENHANCED_KEY),
+    "tab": (0x09, 0x0F, "\t", 0),
 }
 
 
@@ -81,6 +89,9 @@ class attached:
 
     def __enter__(self):
         _lock.acquire()
+        # AttachConsole podmienia uchwyty stdin/stdout/stderr procesu, a FreeConsole zostawia je niewazne -
+        # wtedy kazdy subprocess z capture_output konczy sie bledem "Nieprawidlowe dojscie" (WinError 6)
+        self.std = [kernel32.GetStdHandle(n) for n in STD_HANDLES]
         kernel32.FreeConsole()
         if not kernel32.AttachConsole(wintypes.DWORD(self.pid)):
             err = ctypes.get_last_error()
@@ -91,6 +102,8 @@ class attached:
 
     def __exit__(self, *exc):
         kernel32.FreeConsole()
+        for n, handle in zip(STD_HANDLES, self.std):
+            kernel32.SetStdHandle(n, handle)
         _lock.release()
         return False
 
