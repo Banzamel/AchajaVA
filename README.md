@@ -70,7 +70,7 @@ Achaja starts as a normal Windows program — **`Achaja.exe`** (it runs `app.py`
 
 ### Installer (recommended)
 
-Download `AchajaSetup-<version>.exe` from [Releases](https://github.com/Banzamel/Achaja-VA/releases) and run it. The wizard:
+Download `AchajaSetup-<version>.exe` from [Releases](https://github.com/Banzamel/AchajaVA/releases) and run it. The wizard:
 
 - asks for the language and lets you pick the **modules** — voice assistant (required), project agents, mail, Home Assistant — and whether Achaja starts with Windows;
 - installs for the current user only (no administrator rights) into `%LOCALAPPDATA%\Programs\Achaja`, with its own portable Python — nothing is installed system-wide;
@@ -82,8 +82,8 @@ The file is not code-signed, so Windows SmartScreen shows a warning on the first
 ### From source
 
 ```powershell
-git clone https://github.com/Banzamel/Achaja-VA.git
-cd Achaja-VA
+git clone https://github.com/Banzamel/AchajaVA.git
+cd AchajaVA
 powershell -ExecutionPolicy Bypass -File install.ps1 -Language en   # or -Language pl (default); add -Autostart
 ```
 

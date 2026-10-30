@@ -20,7 +20,7 @@ from pathlib import Path
 
 from common import CREATE_NO_WINDOW, DETACHED_PROCESS, ROOT, __version__, read_json, write_json
 
-REPO = "Banzamel/Achaja-VA"
+REPO = "Banzamel/AchajaVA"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES = f"https://github.com/{REPO}/releases"
 # poza folderem programu: instalator zamyka wszystkie procesy uruchomione z folderu Achai, takze siebie

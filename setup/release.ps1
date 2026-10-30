@@ -47,4 +47,4 @@ Run "git push origin main"
 Run "git push origin v$Version"
 Write-Host ""
 Write-Host "Gotowe. Instalator buduje się w GitHub Actions (zakładka Actions -> Installer)," -ForegroundColor Green
-Write-Host "a po kilku minutach pojawi się w https://github.com/Banzamel/Achaja-VA/releases" -ForegroundColor Green
+Write-Host "a po kilku minutach pojawi się w https://github.com/Banzamel/AchajaVA/releases" -ForegroundColor Green
