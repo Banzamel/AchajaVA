@@ -378,6 +378,7 @@ class AccountWatcher(threading.Thread):
         a = self.acct
         fetched = client.fetch(uids, ["BODY.PEEK[]", "FLAGS"])
         parsed, decided, for_model = {}, {}, {}
+        seen = mail.last_entries(a["name"])
         for uid in uids:
             raw = fetched.get(uid, {}).get(b"BODY[]")
             if not raw:
@@ -385,6 +386,12 @@ class AccountWatcher(threading.Thread):
             m = mail.parse(raw)
             m["unread"] = b"\\Seen" not in fetched[uid].get(b"FLAGS", ())
             parsed[uid] = m
+            fixed = self.user_decision(seen.get(m["message_id"]))
+            if fixed:
+                # uzytkownik juz zdecydowal (mail.py move albo przeciagniecie z powrotem w programie pocztowym)
+                # - nie oceniamy jeszcze raz, bo ta sama regula odeslalaby wiadomosc z powrotem
+                decided[uid] = {"category": fixed, "reason": mail.USER_FIX, "summary": "", "user_fixed": True}
+                continue
             verdict = rule_verdict(m, a)
             if verdict:
                 decided[uid] = {"category": verdict[0], "reason": verdict[1], "summary": ""}
@@ -402,13 +409,18 @@ class AccountWatcher(threading.Thread):
                 v = model
             else:
                 v = {"category": "normal", "reason": "brak oceny modelu - zostawione w skrzynce", "summary": ""}
-            target = a["handling"].get(v["category"], "keep")
+            if v.get("user_fixed"):
+                prev = seen.get(m["message_id"]) or {}
+                v["summary"] = v["summary"] or prev.get("summary", "")
+            # poprawka uzytkownika zostaje tam, gdzie ja polozyl (skrzynka odbiorcza)
+            target = "keep" if v.get("user_fixed") else a["handling"].get(v["category"], "keep")
             by_target.setdefault(target, []).append(uid)
             entries.append({
                 "at": time.time(), "account": a["name"], "uid": uid, "message_id": m["message_id"],
                 "from_name": m["from_name"], "from_addr": m["from_addr"], "subject": m["subject"][:200],
                 "category": v["category"], "summary": v["summary"], "reason": v["reason"], "target": target,
                 "unread": m["unread"], "backlog": backlog,
+                **({"user_fixed": True} if v.get("user_fixed") else {}),
             })
         folders = {}
         for target, group in by_target.items():
@@ -425,6 +437,16 @@ class AccountWatcher(threading.Thread):
         if not backlog and any(e["category"] in set(a.get("announce") or []) for e in entries):
             with _lock:
                 _pending["report"] = True
+
+    def user_decision(self, prev):
+        """Kategoria wybrana przez uzytkownika dla wiadomosci, ktora wrocila do skrzynki - albo None."""
+        if not prev:
+            return None
+        if prev.get("folder") not in (None, self.inbox, "usunieta"):
+            return "normal"  # lezala w innym folderze, a uzytkownik przeciagnal ja z powrotem
+        if prev.get("user_fixed") or prev.get("reason") == mail.USER_FIX:
+            return prev["category"]  # mail.py move inbox / important - wraca z nowym UID
+        return None
 
     def purge(self, client):
         days = self.acct.get("delete_after_days") or 0

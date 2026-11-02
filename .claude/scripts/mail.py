@@ -328,6 +328,18 @@ def update_entry(entry_id, **changes):
         write_json(LOG, log)
 
 
+USER_FIX = "poprawione przez uzytkownika"
+
+
+def last_entries(account):
+    """Ostatni wpis dziennika dla kazdego Message-ID na koncie (do rozpoznania poczty, ktora wraca)."""
+    latest = {}
+    for e in load_log():
+        if e["account"] == account and e.get("message_id"):
+            latest[e["message_id"]] = e
+    return latest
+
+
 def get_entry(entry_id):
     for e in load_log():
         if e["id"] == int(entry_id):
@@ -626,7 +638,7 @@ def cmd_move(cfg, args):
             move(client, [uid], target)
     finally:
         client.logout()
-    update_entry(entry["id"], category=category, folder=dest, reason="poprawione przez uzytkownika")
+    update_entry(entry["id"], category=category, folder=dest, reason=USER_FIX, user_fixed=True)
     print(f"Wiadomosc [{entry['id']}] -> {dest} (kategoria: {label(category, cfg)}).")
 
 
