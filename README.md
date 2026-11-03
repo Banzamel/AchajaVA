@@ -1,8 +1,50 @@
-# Achaja — control Claude Code with your voice
+<p align="center"><img src="setup/assets/achaja.png" alt="Achaja logo" width="128"></p>
 
-**Achaja** turns [Claude Code](https://claude.com/claude-code) into a hands-free voice assistant. Say the wake word, dictate your prompt, finish with the end word — the prompt submits itself and the answer is spoken back through your headphones or a speaker. Achaja runs commands on your PC, **delegates work to agents in your own projects**, and can control your home through Home Assistant.
+# Achaja
 
----
+**A hands-free voice assistant for Windows, built on Claude Code.**
+
+Say the wake word, speak your request, finish with the end word — and listen to the answer. *Achaja* runs [Claude Code](https://claude.com/claude-code) for you in a hidden window: it runs commands on your PC, **hands work to agents in your own projects** and tells you what they did, keeps your **mailbox clean**, and controls your **home** through Home Assistant. You never have to look at the screen.
+
+**Setup takes about 10 minutes:** download the installer, click through a settings window, say "Achaja".
+
+⭐ **[Star it](https://github.com/Banzamel/AchajaVA)** to follow new releases — installed copies update themselves.
+
+## Is this for me?
+
+Yes, if you want to talk to your computer the way you would talk to an assistant in the room — while cooking, walking around, or with your hands on something else. You need:
+
+- **A Windows 10 or 11 PC** with a microphone and headphones or a speaker.
+- **A Claude subscription** (Pro or Max) with [Claude Code](https://code.claude.com/docs/en/setup) signed in — dictation needs a claude.ai account.
+- Optional: **Home Assistant** for the home, **IMAP mail accounts** for the mail cleaner, a **Google Cast speaker** for answers out loud in the room.
+
+### Your first five minutes
+
+1. Download **`AchajaSetup-<version>.exe`** from [Releases](https://github.com/Banzamel/AchajaVA/releases) and run it (SmartScreen: *More info → Run anyway* — the installer is not code-signed yet).
+2. Pick the language and the modules you want: voice (always), project agents, mail, Home Assistant.
+3. The settings window opens: choose the microphone and the output, add project folders, mail accounts and your Home Assistant address — every step can be skipped and changed later.
+4. Start **Achaja** from the Start menu. Say **"Achaja"**, wait for *"Słucham"* and the beep, then say: *"what time is it in Tokyo — execute"*.
+5. The answer is spoken. From here, just talk.
+
+## What it does
+
+- **Listens without a keyboard.** An offline wake-word listener (no audio leaves the PC while idle); the request itself is transcribed by Claude Code, so it understands you as well as Claude does.
+- **Answers out loud.** Every reply ends with a short spoken summary, in headphones or on a Google Cast speaker. When Achaja asks a question, it listens for your answer by itself.
+- **Delegates to project agents.** *"Have the agent for the shop fix the login"* starts a separate Claude Code session in that project's folder, with its own rules — Achaja tells you when it's done and what changed.
+- **Keeps the mailbox clean.** Ads, spam and phishing leave the inbox on the server; a spoken report tells you what is important. It replies only after your yes.
+- **Runs the home.** Lights, climate (including the heating/cooling mode), covers, media, live state — through Home Assistant.
+- **Asks before anything that matters.** Pushing code, deleting, sending mail, locks, gates and alarms wait for your spoken *yes*.
+- **Updates itself.** New releases download in the background and install when you close Achaja.
+
+## What it costs
+
+| What | Cost | Needed for |
+|---|---|---|
+| [Claude Pro or Max](https://claude.com/pricing) | $20, $100 or $200 a month | Everything. Max is better if Achaja and its agents work all day |
+| Achaja | free (MIT) | — |
+| Speech (Vosk wake word, edge-tts voice) | free | Listening and talking |
+| [Home Assistant](https://www.home-assistant.io) | free | Only the home module |
+| A Windows PC | the one you own | Running Achaja |
 
 ## How it works
 
@@ -46,7 +88,7 @@ Achaja starts as a normal Windows program — **`Achaja.exe`** (it runs `app.py`
 
 `start-achaja.cmd` still runs the old console mode (listener window + visible Claude window), handy for troubleshooting. Settings for the window live under `app` in `config.json` (`hide_console`, `show_console_on_prompt`, `tray`, `close_to_tray`, `restart_closed_session`, `update_check`, `update_auto_download`, `update_install_on_quit`, `theme`).
 
-## Features
+## All features
 
 - **Hands-free control** — wake word, dictation, end word, automatic submit.
 - **Spoken answers** — Claude ends every reply with a short summary in a `[GŁOS]` ("voice") section, which is read aloud.
@@ -196,12 +238,41 @@ Everything lives in `config.json` (created from `config.example.json`): micropho
 | `voice.ack_phrases`, `voice.working_phrases` | acknowledgements and reminders |
 | `mail.accounts`, `mail.important_hint`, `mail.quiet_hours` | mailboxes, your own "what is important" rules, silent hours |
 
-## Privacy and safety
+## How security works
 
-- Wake-word listening runs **offline** (Vosk). Prompt audio goes to Claude Code's dictation service, and the spoken text to edge-tts.
-- `config.json`, `.mcp.json`, `state/` (tokens, logs, working transcripts) and `.claude/settings*.json` are git-ignored — don't publish them.
-- Achaja asks out loud before irreversible or outward-facing actions (git push, deploys, deleting data, locks and alarms at home).
-- The listener writes keystrokes only into the console of the Claude Code session it manages.
+Achaja runs on your PC and controls it by voice, so the rules are strict and enforced in code where possible, not only in the assistant's instructions.
+
+- **Local listening.** The wake-word model runs offline (Vosk). Only your dictated request goes to Claude Code's dictation, and the spoken text to edge-tts.
+- **Your yes, out loud.** Irreversible or outward-facing actions (git push, deploys, deleting data, sending mail) wait for your spoken *yes* in the next prompt.
+- **Locks, gates, garages, alarms.** `ha.py` refuses them without `--confirmed` — including commands aimed at a whole area, floor, device, label or script that would reach one. A hook (`hook_ha.py`) applies the same check to the Home Assistant MCP tools, and when it can't tell what a command covers, it asks.
+- **Mail is data, never instructions.** E-mails are classified by a model with no tools; every field written by the sender (body, subject, sender name, attachment names) is neutralised before it reaches that model, mail read out in a conversation is wrapped in a random tag the sender can't guess, and the spoken report never says the wake word.
+- **Secrets stay local.** `config.json`, `.mcp.json`, `state/` (tokens, logs, transcripts) and `.claude/settings*.json` are git-ignored; the Home Assistant token is never printed.
+- **Only its own window.** The listener writes keystrokes only into the console of the Claude Code session it manages.
+
+Found a security hole? Please [report it privately](https://github.com/Banzamel/AchajaVA/security/advisories/new), not in a public issue.
+
+## FAQ
+
+**Do I need to know how to code?**
+No. The installer and the settings window do the setup; after that you only talk.
+
+**Does it work on macOS or Linux?**
+Not yet — keystroke injection and per-app audio routing use Windows APIs. Pull requests welcome.
+
+**Is my audio sent anywhere?**
+Not while Achaja waits for the wake word. After it, your request goes to Claude Code's dictation, and Achaja's spoken answers are synthesised by edge-tts.
+
+**Can it delete files, send mail or open my gate on its own?**
+No. Those actions wait for your spoken yes; locks, gates, garages and alarms are refused in code until you confirm.
+
+**What languages does it speak?**
+Polish and English out of the box; any language with a Vosk model can be added in `config.json`.
+
+**How do I get new features?**
+Installed copies check GitHub Releases and update themselves when you close the window. Say *"check for updates"* any time.
+
+**Is this an Anthropic product?**
+No. It's an independent open source project built on Claude Code.
 
 ## Troubleshooting
 
@@ -238,6 +309,10 @@ powershell -ExecutionPolicy Bypass -File setup\release.ps1 -Version 0.5.0
 ```
 
 First write the release notes in `.github/releases/0.5.0.md` — the first line is the title (`# Achaja 0.5.0 — short subtitle`), the rest is the description, in the same style as the earlier files there. The script bumps `__version__`, commits the version and the notes as "Wersja 0.5.0", tags `v0.5.0` and pushes both. The tag starts the *Installer* workflow in GitHub Actions, which builds `Achaja.exe` and `AchajaSetup-0.5.0.exe` and attaches the installer to a new release titled and described from that file; installed copies of Achaja find it on their next check. Editing a notes file later and pushing it to `main` updates the published release too (*Release notes* workflow). The same by hand: add the notes file, bump `__version__` in `.claude/scripts/common.py`, commit, then `git tag -a v0.5.0 -m "Achaja 0.5.0"` and `git push origin main v0.5.0`.
+
+## Who made this
+
+Rafał Polak ([@Banzamel](https://github.com/Banzamel)). Questions and ideas: [open an issue](https://github.com/Banzamel/AchajaVA/issues).
 
 ## License
 
