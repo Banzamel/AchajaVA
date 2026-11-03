@@ -25,6 +25,7 @@ import subprocess
 import time
 import winsound
 
+import plan
 from audio_out import request_stop
 from common import (CREATE_NEW_CONSOLE, CREATE_NO_WINDOW, DETACHED_PROCESS, PYTHON, PYTHONW, ROOT,
                     SCRIPTS, STATE, clean_env, load_config, model_dir, pick_device, pid_alive, process_name, read_json,
@@ -432,6 +433,7 @@ def run(args, ui):
     remind_every = cfg["voice"].get("working_reminder_every_seconds", 60)
     remind_max = cfg["voice"].get("working_reminder_max_seconds", 900)
     last_reminder = 0.0
+    last_plan = 0.0  # przypomnienia i zadania o czasie (plan.py)
     wake_replies = cfg["voice"].get("wake_replies",
                                     ["Słucham."] if cfg.get("language", "pl") == "pl" else ["Yes?"])
     wake_clips = []
@@ -639,6 +641,24 @@ def run(args, ui):
                     last_reminder = now
                     say(random.choice(cfg["voice"].get("working_phrases") or ["Nadal pracuję."]))
                     log(f"Achaja pracuje od {int(busy_for)} s - przypomnienie glosowe.")
+            if now - last_plan >= 15:
+                last_plan = now
+                try:
+                    kinds = set()
+                    if state == IDLE:  # nie wchodzimy w nagrywanie
+                        kinds.add("say")
+                        work = read_json(STATE / "achaja_state.json", {})
+                        if work.get("state", "idle") == "idle" and not speaking():
+                            kinds.add("prompt")  # polecenie tylko, gdy Achaja nic nie robi
+                    for kind, text in plan.take_due(kinds) if kinds else []:
+                        if kind == "say":
+                            say(text)
+                            log(f"Przypomnienie: {text}")
+                        else:
+                            submit(f"{plan.SCHEDULED} {text}")
+                            log(f"Zaplanowane polecenie: {text}")
+                except Exception as exc:
+                    log(f"BLAD planu (plan.py): {exc!r}")
             if chunk is None:
                 continue
 

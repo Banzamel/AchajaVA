@@ -20,10 +20,11 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
-from common import (AGENTS_STATE, CREATE_NEW_CONSOLE, CREATE_NO_WINDOW, PYTHON, SCRIPTS, clean_env,
+from common import (AGENTS_STATE, CREATE_NEW_CONSOLE, CREATE_NO_WINDOW, PYTHON, ROOT, SCRIPTS, clean_env,
                     load_config, pid_alive, read_json, write_json)
 
 SESSIONS = AGENTS_STATE / "sessions.json"
@@ -93,6 +94,30 @@ def describe_tool(block):
     return f"{block.get('name')}: {short(inp)}"
 
 
+def rule_path(path):
+    """Sciezka w regule uprawnien Claude Code: na Windows C:\\x\\y -> //c/x/y (forma POSIX)."""
+    p = str(path).replace("\\", "/")
+    if re.match(r"^[A-Za-z]:/", p):
+        p = "/" + p[0].lower() + p[2:]
+    return "/" + p if p.startswith("/") else p
+
+
+def protected_settings():
+    """Agent pracuje w innym folderze, ale nie czyta i nie zmienia plikow Achai: tokenow i logow (state/),
+    ustawien z hookami i konfiguracji - tamtedy mozna by obejsc bramke albo wyniesc token."""
+    paths = [ROOT / "state" / "**", ROOT / "config.json", ROOT / ".mcp.json", ROOT / ".claude" / "settings.json",
+             ROOT / ".claude" / "settings.local.json"]
+    deny = []
+    for path in paths:
+        rule = rule_path(path)
+        deny += [f"Read({rule})", f"Edit({rule})", f"Write({rule})"]
+    return json.dumps({"permissions": {"deny": deny}})
+
+
+def kill_tree(pid):
+    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=CREATE_NO_WINDOW)
+
+
 def cmd_run(args, cfg):
     name, path = resolve(args.project, cfg)
     prompt = args.prompt
@@ -110,7 +135,7 @@ def cmd_run(args, cfg):
     claude = shutil.which("claude")
     cmd = [claude, "-p", "--output-format", "stream-json", "--verbose",
            "--permission-mode", cfg["agents"].get("permission_mode", "auto"),
-           "--append-system-prompt", AGENT_PROMPT.format(name=name)]
+           "--append-system-prompt", AGENT_PROMPT.format(name=name), "--settings", protected_settings()]
     resumed = name in sessions and not args.new
     if resumed:
         cmd += ["--resume", sessions[name]]
@@ -140,8 +165,23 @@ def cmd_run(args, cfg):
     proc.stdin.write(prompt.encode("utf-8"))
     proc.stdin.close()
 
+    # zawieszony agent (narzedzie, ktore nigdy nie wraca) sam sie konczy: brak postepu przez hang_minutes
+    hang = float(cfg["agents"].get("hang_minutes", 45)) * 60
+    last = {"at": time.time(), "hung": False}
+
+    def watchdog():
+        while proc.poll() is None:
+            time.sleep(15)
+            if hang > 0 and proc.poll() is None and time.time() - last["at"] > hang:
+                last["hung"] = True
+                kill_tree(proc.pid)
+                return
+
+    threading.Thread(target=watchdog, daemon=True).start()
+
     result = None
     for raw in proc.stdout:
+        last["at"] = time.time()
         line = raw.decode("utf-8", errors="replace").strip()
         if not line:
             continue
@@ -169,7 +209,13 @@ def cmd_run(args, cfg):
     write_json(RUNNING, running)
 
     if result is None:
-        text = f"Agent projektu {name} zakonczyl sie bez wyniku (kod {proc.returncode}). Log: {log_path}"
+        if last["hung"]:
+            text = (f"Agent projektu {name} zawiesil sie - przez {round(hang / 60)} min nie bylo postepu, "
+                    f"wiec go przerwalam. Ostatnie kroki sa w logu: {log_path}")
+            (AGENTS_STATE / f"{name}-last.md").write_text(f"# Wynik agenta projektu {name}\n\n{text}\n",
+                                                          encoding="utf-8")
+        else:
+            text = f"Agent projektu {name} zakonczyl sie bez wyniku (kod {proc.returncode}). Log: {log_path}"
         out(text)
         out("=== KONIEC ===")
         print(text)
@@ -231,7 +277,7 @@ def cmd_stop(args, cfg):
     if name not in running or not pid_alive(running[name]["pid"]):
         print(f"Agent {name} nie pracuje.")
         return
-    subprocess.run(["taskkill", "/PID", str(running[name]["pid"]), "/T", "/F"], capture_output=True)
+    kill_tree(running[name]["pid"])
     print(f"Przerwano agenta {name}.")
 
 

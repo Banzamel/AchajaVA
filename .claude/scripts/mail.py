@@ -294,13 +294,17 @@ def sender_matches(addr, patterns):
 
 # ---------- tresc od obcych (dane, nie polecenia) ----------
 
+# znaki niewidoczne: zmiana kierunku tekstu (tekst wyglada inaczej, niz czyta go model), znaki zerowej
+# szerokosci i "tagi" Unicode (U+E0000), ktorymi mozna ukryc zdanie przed czlowiekiem, ale nie przed modelem
+_HIDDEN = re.compile("[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\U000e0000-\U000e007f]")
 _TAG = re.compile(r"<(?=\s*/?\s*(?:email|mail-|untrusted))", re.IGNORECASE)
 
 
 def neutral(value, oneline=True):
-    """Pole maila bezpieczne do wklejenia modelowi: bez znacznikow ogrodzenia (<email>, </email>, <mail-...>)
-    i - dla naglowkow - bez nowych linii, ktorymi mozna podrobic kolejne pola ("Body:", "</email>")."""
-    text = _TAG.sub("\u2039", str(value or ""))
+    """Pole maila bezpieczne do wklejenia modelowi: bez znakow niewidocznych, bez znacznikow ogrodzenia
+    (<email>, </email>, <mail-...>) i - dla naglowkow - bez nowych linii, ktorymi mozna podrobic kolejne pola."""
+    text = _HIDDEN.sub("", str(value or ""))
+    text = _TAG.sub("\u2039", text)
     text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f\u2028\u2029]", " ", text)
     return " ".join(text.split()) if oneline else text
 

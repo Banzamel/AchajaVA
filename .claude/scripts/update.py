@@ -18,7 +18,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from common import CREATE_NO_WINDOW, DETACHED_PROCESS, ROOT, __version__, read_json, write_json
+from common import CREATE_NO_WINDOW, DETACHED_PROCESS, ROOT, STATE, __version__, read_json, write_json
 
 REPO = "Banzamel/AchajaVA"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
@@ -26,6 +26,7 @@ RELEASES = f"https://github.com/{REPO}/releases"
 # poza folderem programu: instalator zamyka wszystkie procesy uruchomione z folderu Achai, takze siebie
 UPDATES = Path(tempfile.gettempdir()) / "Achaja-updates"
 ASSET = re.compile(r"^AchajaSetup-[\w.\-]+\.exe$")
+NOTES = STATE / "update_notes.json"  # opis pobranej wersji - po instalacji Achaja mowi, co nowego
 
 
 def version_key(text):
@@ -60,6 +61,31 @@ def check(timeout=15):
         "page": data.get("html_url") or RELEASES,
         "notes": (data.get("body") or "")[:2000],
     }
+
+
+def save_notes(info):
+    """Zapamietuje opis wydania, zeby po aktualizacji powiedziec, co sie zmienilo."""
+    if info and info.get("version") and read_json(NOTES, {}).get("version") != info["version"]:
+        write_json(NOTES, {"version": info["version"], "notes": info.get("notes") or "", "announced": False})
+
+
+def whats_new(lang="pl"):
+    """Po starcie nowej wersji: (zdanie do powiedzenia, notatka do okna rozmowy) - raz; inaczej None."""
+    data = read_json(NOTES, {})
+    if data.get("version") != __version__ or data.get("announced"):
+        return None
+    data["announced"] = True
+    write_json(NOTES, data)
+    lines = (data.get("notes") or "").splitlines()
+    title = next((l.lstrip("#").strip() for l in lines if l.startswith("#")), f"Achaja {__version__}")
+    points = [re.sub(r"[*`]", "", m.group(1)).strip() for m in
+              (re.match(r"\s*-\s+\*\*(.+?)\*\*", l) for l in lines) if m]
+    note = title + "".join(f"\n• {p}" for p in points[:8])
+    if lang == "en":
+        spoken = f"I've updated to version {__version__}. What's new is in the chat window."
+    else:
+        spoken = f"Zaktualizowałam się do wersji {__version__}. Co nowego, masz w oknie rozmowy."
+    return spoken, note
 
 
 def downloaded(info):
@@ -129,6 +155,7 @@ def main():
     if not installed():
         print(f"Nowa wersja {info['version']}: {info['page']} (kopia z gita - zaktualizuj przez git pull).")
         return
+    save_notes(info)
     path = download(info)
     print(f"Pobrano wersje {info['version']}: {path}")
     if cmd == "install":

@@ -1,7 +1,7 @@
 """Hooki UserPromptSubmit i Notification (dzialaja tylko w sesji Achai - ACHAJA_SESSION).
 
 UserPromptSubmit: stan "busy" + krotkie potwierdzenie glosem ("Juz sprawdzam"),
-  zeby bylo wiadomo, ze prompt dotarl i Achaja pracuje.
+  zeby bylo wiadomo, ze prompt dotarl i Achaja pracuje; zapis zgody dla bramki (state/approval.json).
 Notification: gdy Claude czeka na zgode przy komputerze - mowi o tym na glos
   i ustawia stan "waiting" (listener nie mowi wtedy "nadal pracuje").
 """
@@ -11,6 +11,8 @@ import random
 import subprocess
 import sys
 import time
+
+import hook_gate
 
 from common import (CREATE_NO_WINDOW, DETACHED_PROCESS, PYTHONW, SCRIPTS, STATE, append_chat, load_config,
                     write_json)
@@ -34,8 +36,12 @@ def main():
     event = data.get("hook_event_name")
     if event == "UserPromptSubmit":
         write_json(STATE / "achaja_state.json", {"state": "busy", "since": time.time()})
-        append_chat("user", data.get("prompt", ""))
-        phrases = load_config()["voice"].get("ack_phrases") or []
+        prompt = data.get("prompt", "")
+        append_chat("user", prompt)
+        cfg = load_config()
+        # bramka (hook_gate.py): zgoda tylko z promptu uzytkownika i tylko na te ture
+        write_json(STATE / "approval.json", {"yes": hook_gate.is_yes(prompt, cfg), "at": time.time()})
+        phrases = cfg["voice"].get("ack_phrases") or []
         if phrases:
             say(random.choice(phrases))
     elif event == "Notification":

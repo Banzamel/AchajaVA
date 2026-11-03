@@ -32,8 +32,9 @@ Yes, if you want to talk to your computer the way you would talk to an assistant
 - **Answers out loud.** Every reply ends with a short spoken summary, in headphones or on a Google Cast speaker. When Achaja asks a question, it listens for your answer by itself.
 - **Delegates to project agents.** *"Have the agent for the shop fix the login"* starts a separate Claude Code session in that project's folder, with its own rules — Achaja tells you when it's done and what changed.
 - **Keeps the mailbox clean.** Ads, spam and phishing leave the inbox on the server; a spoken report tells you what is important. It replies only after your yes.
+- **Reminds you and runs tasks on time.** *“Remind me at three to call mum”*, *“every weekday at eight tell me what's in my mail”*.
 - **Runs the home.** Lights, climate (including the heating/cooling mode), covers, media, live state — through Home Assistant.
-- **Asks before anything that matters.** Pushing code, deleting, sending mail, locks, gates and alarms wait for your spoken *yes*.
+- **Asks before anything that matters.** Pushing code, deleting, sending mail, locks, gates and alarms wait for your spoken *yes* — enforced in code, not just in the instructions.
 - **Updates itself.** New releases download in the background and install when you close Achaja.
 
 ## What it costs
@@ -173,6 +174,7 @@ Example commands:
 - "what are the agents doing?", "what did the taxi agent do?", "stop the vision agent"
 - "answer through the speaker", "back to headphones"
 - "turn on the light in the office", "set the AC to 22 degrees" (Home Assistant)
+- "remind me in half an hour to take the laundry out", "every weekday at eight tell me what's new in my mail", "what have I scheduled?"
 
 ## Project agents
 
@@ -225,6 +227,17 @@ IMAP server ──IDLE──► mail_watch.py (background, one connection per ac
 
 Mail is never marked as read. The first start reviews existing mail (all unread plus the last `scan_existing_days` days) and reports once at the end; `mail.py rescan` repeats it on demand. Everything happens on the server: moved mail is purged `delete_after_days` (7 by default) after the move, "that wasn't spam" brings it back (`mail.py move <n> inbox`), and locally only metadata from the last `log_days` days is kept. Replies (`mail.py reply <n> --text-file F`, or `--draft`) go out over SMTP, get a copy in Sent and mark the original as answered; Achaja reads the draft aloud and sends it only after your yes. E-mail content only ever reaches a model with no tools and comes back as a category, so instructions hidden in an e-mail cannot trigger actions. For viruses the best first line of defence is the mail server itself (e.g. Rspamd + ClamAV) — Achaja trusts its `X-Spam-*` / `X-Virus-*` headers.
 
+## Reminders and scheduled tasks
+
+```
+.venv\Scripts\python.exe .claude\scripts\plan.py add --say "Call mum." --at 15:00
+.venv\Scripts\python.exe .claude\scripts\plan.py add --prompt "what's new in my mail" --weekdays 08:00
+.venv\Scripts\python.exe .claude\scripts\plan.py list
+.venv\Scripts\python.exe .claude\scripts\plan.py remove 3
+```
+
+Achaja does this for you when you ask by voice. When: `--in 30m`, `--at 15:30` or `--at "2026-11-20 09:00"`, `--daily 08:00`, `--weekdays 08:00`, `--weekly "fri 16:00"`. A `--say` reminder is spoken on time (after you finish recording); a `--prompt` task reaches Achaja as a message marked `[ZAPLANOWANE]` when she is idle — it can delegate to agents or check the mail, but it never counts as your approval for gated actions. The listener in the Achaja window runs the schedule (`state/plan.json`).
+
 ## Configuration
 
 Everything lives in `config.json` (created from `config.example.json`): microphone, control words and their sensitivity, the model and effort of the Achaja session, voice and audio outputs, acknowledgement phrases, project folders and aliases, Home Assistant, mail accounts. Most commonly tuned:
@@ -243,9 +256,10 @@ Everything lives in `config.json` (created from `config.example.json`): micropho
 Achaja runs on your PC and controls it by voice, so the rules are strict and enforced in code where possible, not only in the assistant's instructions.
 
 - **Local listening.** The wake-word model runs offline (Vosk). Only your dictated request goes to Claude Code's dictation, and the spoken text to edge-tts.
-- **Your yes, out loud.** Irreversible or outward-facing actions (git push, deploys, deleting data, sending mail) wait for your spoken *yes* in the next prompt.
+- **Your yes, out loud — enforced by a gate.** Irreversible or outward-facing actions (git push, deleting files, sending mail, deploys, shutting down, locks and gates, installing an update, MCP tools that send or delete) are stopped by a hook (`hook_gate.py`) unless the turn started with your own *yes*. The approval lasts one turn; text from a mail, a page, an agent's report or a scheduled task can't give it.
+- **Agents stay in their lane.** Project agents can't read or change Achaja's tokens, logs, settings or `config.json`, and an agent with no progress for 45 minutes is stopped.
 - **Locks, gates, garages, alarms.** `ha.py` refuses them without `--confirmed` — including commands aimed at a whole area, floor, device, label or script that would reach one. A hook (`hook_ha.py`) applies the same check to the Home Assistant MCP tools, and when it can't tell what a command covers, it asks.
-- **Mail is data, never instructions.** E-mails are classified by a model with no tools; every field written by the sender (body, subject, sender name, attachment names) is neutralised before it reaches that model, mail read out in a conversation is wrapped in a random tag the sender can't guess, and the spoken report never says the wake word.
+- **Mail is data, never instructions.** E-mails are classified by a model with no tools; every field written by the sender (body, subject, sender name, attachment names) is neutralised, hidden Unicode characters included, before it reaches that model, mail read out in a conversation is wrapped in a random tag the sender can't guess, and the spoken report never says the wake word.
 - **Secrets stay local.** `config.json`, `.mcp.json`, `state/` (tokens, logs, transcripts) and `.claude/settings*.json` are git-ignored; the Home Assistant token is never printed.
 - **Only its own window.** The listener writes keystrokes only into the console of the Claude Code session it manages.
 

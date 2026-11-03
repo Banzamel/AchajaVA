@@ -68,7 +68,9 @@
     "permission_mode": "auto",
     "show_window": true,
     "_show_window": "Okno konsoli 'Agent: <projekt>' z postępem (w aplikacji okienkowej postęp jest w zakładce Agenci i okno się nie otwiera). / Console progress window; in the app the Agents tab replaces it.",
-    "close_window_after_seconds": 300
+    "close_window_after_seconds": 300,
+    "hang_minutes": 45,
+    "_hang_minutes": "Agent bez żadnego postępu przez tyle minut jest przerywany (0 = nigdy). / An agent with no progress for this many minutes is stopped (0 = never)."
   },
 
   "home_assistant": {

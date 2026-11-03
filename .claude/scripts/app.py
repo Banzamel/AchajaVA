@@ -430,6 +430,7 @@ class App:
             root.deiconify()
             root.after(50, lambda: self.theme.titlebar(root))
         self.start_listener(args.resume)
+        root.after(4000, self.announce_update)
         root.after(200, self.poll)
         root.after(60, self.animate)
         if self.opts.get("update_check", True):
@@ -988,6 +989,18 @@ class App:
         messagebox.showinfo("Achaja", self.t["about_text"].format(__version__), parent=self.root)
 
     # --- aktualizacje ---
+    def announce_update(self):
+        """Pierwszy start po aktualizacji: krotko glosem + lista zmian w oknie rozmowy."""
+        try:
+            news = update.whats_new(self.cfg.get("language", "pl"))
+        except Exception as exc:
+            self.logs.put(f"{time.strftime('%H:%M:%S')} Co nowego: {exc!r}")
+            return
+        if news:
+            spoken, note = news
+            self.add_note(note)
+            listener.say(spoken)
+
     def scheduled_update_check(self):
         self.check_update(manual=False)
         self.root.after(UPDATE_EVERY * 1000, self.scheduled_update_check)
@@ -1007,6 +1020,8 @@ class App:
                         self.update_msg = (t["upd_none"].format(__version__), None)
                     return
                 self.update_info = info
+                if update.installed():
+                    update.save_notes(info)
                 if not update.installed():
                     self.update_msg = (t["upd_source"].format(info["version"]), "open")
                     return
