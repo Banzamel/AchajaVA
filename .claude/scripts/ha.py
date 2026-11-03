@@ -26,7 +26,8 @@ ALLOWED = ("climate", "light", "switch", "cover", "fan", "media_player", "vacuum
            "lock", "alarm_control_panel")  # dwie ostatnie tylko z --confirmed
 GUARDED = ("lock", "alarm_control_panel")
 GUARDED_CLASSES = ("garage", "gate", "door")  # device_class rolet/bram
-GUARDED_WORDS = ("brama", "bramy", "furtk", "garaz", "gate", "garage", "zamek", "lock", "alarm")
+GUARDED_WORDS = ("bram", "furtk", "garaz", "gate", "garage", "zamek", "zamk", "lock", "alarm", "drzwi", "wjazd",
+                 "szlaban")
 MODES = ("heat", "cool", "auto", "heat_cool", "dry", "fan_only", "off")
 SETTLE = 2.5  # sekundy na reakcje urzadzenia przed odczytem stanu
 TOKEN = ""
@@ -114,7 +115,8 @@ class HA:
         for line in str(listing).splitlines():
             area_id, _, area_name = line.partition("\t")
             if wanted in (fold(area_id), fold(area_name)):
-                ids = self.template(f"{{{{ area_entities('{area_id}') | tojson }}}}")
+                ids = self.template(f"{{{{ (area_entities({area_id!r}) + (area_devices({area_id!r}) "
+                                    f"| map('device_entities') | sum(start=[]))) | unique | list | tojson }}}}")
                 return json.loads(ids) if isinstance(ids, str) else (ids or [])
         return []
 
@@ -223,6 +225,51 @@ def cmd_climate(ha, args):
     return 0
 
 
+TARGET_KEYS = ("area_id", "device_id", "floor_id", "label_id")  # cele, ktore HA rozwija na wiele encji
+SCRIPT_SERVICES = ("turn_on", "turn_off", "toggle", "reload")    # pozostale uslugi script.<nazwa> = skrypt
+
+
+def as_list(value):
+    """entity_id/area_id/... moze byc napisem (takze 'a, b'), lista albo brakiem."""
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple)) else [value]
+    return [p.strip() for v in items for p in str(v).split(",") if p.strip()]
+
+
+def call_targets(data):
+    """{klucz: [wartosci]} ze wszystkich miejsc, gdzie HA szuka celu (na gorze i w 'target')."""
+    found = {}
+    for where in (data, data.get("target") if isinstance(data.get("target"), dict) else {}):
+        for key in ("entity_id",) + TARGET_KEYS:
+            found.setdefault(key, []).extend(as_list(where.get(key)))
+    return found
+
+
+def resolve_targets(ha, targets):
+    """Encje, ktore obejmie wywolanie z area_id/device_id/floor_id/label_id (tak jak rozwija je HA:
+    obszar = jego encje + encje jego urzadzen). None, gdy nie da sie tego sprawdzic."""
+    pieces = []
+    for area in targets["area_id"]:
+        pieces.append(f"area_entities({area!r}) + (area_devices({area!r}) | map('device_entities') | sum(start=[]))")
+    for dev in targets["device_id"]:
+        pieces.append(f"device_entities({dev!r})")
+    for floor in targets["floor_id"]:
+        pieces.append(f"(floor_areas({floor!r}) | map('area_entities') | sum(start=[])) + (floor_areas({floor!r}) "
+                      f"| map('area_devices') | sum(start=[]) | map('device_entities') | sum(start=[]))")
+    for lab in targets["label_id"]:
+        pieces.append(f"label_entities({lab!r}) + (label_devices({lab!r}) | map('device_entities') | sum(start=[]))"
+                      f" + (label_areas({lab!r}) | map('area_entities') | sum(start=[]))")
+    if not pieces:
+        return []
+    try:
+        out = ha.template("{{ (" + " + ".join(pieces) + ") | unique | list | tojson }}")
+        ids = json.loads(out) if isinstance(out, str) else out
+    except (HAError, ValueError):
+        return None
+    return [str(i) for i in ids] if isinstance(ids, list) else None
+
+
 def cmd_call(ha, args):
     if args.domain not in ALLOWED:
         raise HAError(f"Domena '{args.domain}' nie jest dozwolona. Dozwolone: {', '.join(ALLOWED)}.")
@@ -232,23 +279,41 @@ def cmd_call(ha, args):
         raise HAError(f"Niepoprawny JSON: {exc}")
     if not isinstance(data, dict):
         raise HAError("Dane uslugi musza byc obiektem JSON, np. {\"entity_id\": \"light.salon\"}.")
-    ids = data.get("entity_id") or []
-    ids = [ids] if isinstance(ids, str) else list(ids)
     if not args.confirmed:
-        if args.domain in GUARDED:
-            return refuse(args.domain)
-        if not ids and args.domain == "cover":  # obszar / urzadzenie - nie wiadomo, czy nie ma tam bramy
-            return refuse("rolety bez entity_id (moze obejmowac brame lub garaz)")
-        by_id = {s["entity_id"]: s for s in ha.states()}
-        for eid in ids:
-            if guarded(by_id.get(eid, {"entity_id": eid})):
-                return refuse(eid)
+        why = unconfirmed_risk(ha, args.domain, args.service, data)
+        if why:
+            return refuse(why)
     result = ha.service(args.domain, args.service, data)
     if ha.dry_run:
         return 0
     changed = [f"{s['entity_id']}: {s['state']}" for s in result or [] if isinstance(s, dict)]
     print("OK" + (": " + ", ".join(changed[:20]) if changed else " (usluga wykonana)."))
     return 0
+
+
+def unconfirmed_risk(ha, domain, service, data):
+    """Powod, dla ktorego wywolanie wymaga --confirmed, albo None. Dziala 'w razie watpliwosci - pytaj':
+    cel, ktorego nie da sie sprawdzic, traktujemy jak brame."""
+    if domain in GUARDED:
+        return domain
+    targets = call_targets(data)
+    ids = list(targets["entity_id"])
+    if any(i.lower() == "all" for i in ids):
+        return "entity_id 'all' (obejmuje wszystkie urzadzenia, takze bramy i zamki)"
+    if domain == "script" and service not in SCRIPT_SERVICES:
+        ids.append(f"script.{service}")  # script.<nazwa> uruchamia skrypt bez entity_id
+    if any(targets[k] for k in TARGET_KEYS):
+        expanded = resolve_targets(ha, targets)
+        if expanded is None:
+            return "obszar/urzadzenie, ktorego nie dalo sie sprawdzic (moze obejmowac brame lub zamek)"
+        ids += expanded
+    elif not ids and domain == "cover":
+        return "rolety bez wskazanego celu (moze obejmowac brame lub garaz)"
+    by_id = {s["entity_id"]: s for s in ha.states()}
+    for eid in ids:
+        if guarded(by_id.get(eid, {"entity_id": eid})):
+            return eid
+    return None
 
 
 def refuse(what):

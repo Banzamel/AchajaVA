@@ -73,6 +73,7 @@ Jeśli serwer MCP `home-assistant` jest dostępny:
 - Tokenu nie wypisuj ani nie odczytuj do odpowiedzi (`ha.py` sam go nie pokazuje).
 
 **Zamki, alarm, bramy, garaże** — zawsze potwierdź głosowo przed wykonaniem (MCP i `ha.py`). `ha.py` odmawia ich bez `--confirmed` („WYMAGA POTWIERDZENIA”, kod 3): zapytaj wtedy użytkownika i dopiero po „tak” uruchom ponownie z `--confirmed`.
+To samo dotyczy poleceń dla całego obszaru, piętra, urządzenia (`area_id`, `device_id`…) i skryptów — `ha.py` rozwija je na encje i pyta, gdy jest wśród nich coś chronionego. Narzędzia MCP pilnuje hook `hook_ha.py`: gdy odmówi („WYMAGA POTWIERDZENIA”), zapytaj użytkownika, a po „tak” wykonaj to przez `ha.py ... --confirmed`.
 
 Skróty domowe użytkownika (np. skrypt „wychodzę z domu”) opisz w `.claude/CLAUDE.local.md`.
 
@@ -93,7 +94,7 @@ Gdy użytkownik chce pracy nad projektem („niech agent od X poprawi…”, „
 
 ## Struktura projektu
 - `config.json` — słowa kluczowe, głos, wyjścia audio, foldery projektów, aliasy, opcjonalnie Home Assistant i konta pocztowe (plik lokalny, nie trafia do repozytorium).
-- `.claude/scripts/` — `app.py` (okno aplikacji: rozmowa, podgląd terminala tej sesji, agenci, dziennik; nasłuch w wątku, ta sesja w ukrytej konsoli; uruchamia je `Achaja.exe`) + `avatar.py` (animowany awatar stanu) + `theme.py` (wygląd), `update.py` (aktualizacje z wydań na GitHubie), `listener.py` (nasłuch), `console.py` + `inject.py` + `screen.py` (klawisze i odczyt ekranu konsoli), `speak.py` + `audio_out.py` (mowa), `output.py` (wybór wyjścia), `hook_*.py` (hooki), `agent.py` + `agent_view.py` (agenci projektów), `mail.py` + `mail_watch.py` (poczta), `ha.py` (Home Assistant przez REST — tryb klimatyzacji i to, czego nie ma MCP).
+- `.claude/scripts/` — `app.py` (okno aplikacji: rozmowa, podgląd terminala tej sesji, agenci, dziennik; nasłuch w wątku, ta sesja w ukrytej konsoli; uruchamia je `Achaja.exe`) + `avatar.py` (animowany awatar stanu) + `theme.py` (wygląd), `update.py` (aktualizacje z wydań na GitHubie), `listener.py` (nasłuch), `console.py` + `inject.py` + `screen.py` (klawisze i odczyt ekranu konsoli), `speak.py` + `audio_out.py` (mowa), `output.py` (wybór wyjścia), `hook_*.py` (hooki; `hook_ha.py` — blokada zamków i bram dla MCP), `agent.py` + `agent_view.py` (agenci projektów), `mail.py` + `mail_watch.py` (poczta), `ha.py` (Home Assistant przez REST — tryb klimatyzacji i to, czego nie ma MCP).
 - `setup/` — `configure.py` (okienkowy kreator ustawień krok po kroku: mikrofon, głośnik, projekty, konta pocztowe, Home Assistant; „otwórz ustawienia” → `Start-Process ".venv\Scripts\pythonw.exe" "setup\configure.py"`), `set_app_audio.py` (mikrofon/głośnik dla wskazanego programu), `ha_areas.py` (obszary w Home Assistant), `trust.py` (folder Achai jako zaufany w Claude Code — bez tego ukryta sesja pyta przy starcie o serwer MCP), `installer.iss` + `build-installer.ps1` + `assets/` (instalator .exe, ikona i grafika), `launcher/` + `build-launcher.ps1` (Achaja.exe), `release.ps1` (nowe wydanie), szablon ustawień.
 - `state/` — pliki robocze (sesje agentów, logi, tokeny); nie publikuj ich.
 - Python z `.venv` — nie instaluj pakietów globalnie, tylko do `.venv` (`.venv\Scripts\python.exe -m pip install ...`).

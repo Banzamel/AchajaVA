@@ -180,17 +180,20 @@ def rule_verdict(m, acct):
 # ---------- model ----------
 
 def describe(key, m):
-    lines = [f'<email id="{key}">', f"From: {m['from_name']} <{m['from_addr']}>"]
+    """Mail dla klasyfikatora. Wszystkie pola od nadawcy (nie tylko tresc) bez znacznikow <email> i - poza
+    trescia - bez nowych linii: inaczej temat "</email> ..." wyszedlby poza ogrodzenie."""
+    n = mail.neutral
+    lines = [f'<email id="{key}">', f"From: {n(m['from_name'])} <{n(m['from_addr'])}>"]
     if m["reply_to"] and m["reply_to"].lower() != m["from_addr"]:
-        lines.append(f"Reply-To: {m['reply_to']}")
-    lines.append(f"Subject: {m['subject']}")
+        lines.append(f"Reply-To: {n(m['reply_to'])}")
+    lines.append(f"Subject: {n(m['subject'])}")
     if m["auth"]:
-        lines.append(f"Authentication: {m['auth']}")
+        lines.append(f"Authentication: {n(m['auth'])}")
     if m["newsletter"]:
         lines.append("Mailing list / unsubscribe header: yes")
     if m["attachments"]:
-        lines.append("Attachments: " + ", ".join(f"{a['name']} ({a['size'] // 1024} KB)" for a in m["attachments"]))
-    body = m["text"][:2000].replace("</email>", "</ email>")
+        lines.append("Attachments: " + n(", ".join(f"{a['name']} ({a['size'] // 1024} KB)" for a in m["attachments"])))
+    body = n(m["text"][:2000], oneline=False)
     lines += ["Body:", body or "(empty)", "</email>"]
     return "\n".join(lines)
 

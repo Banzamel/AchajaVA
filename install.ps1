@@ -69,9 +69,13 @@ if (-not $SkipModel -and -not (Test-Path $modelDir)) {
 $settings = Join-Path $root ".claude\settings.json"
 $template = Get-Content (Join-Path $root "setup\settings.json") -Raw -Encoding UTF8
 $template = $template -replace '__PROJECT_DIR__', ($root -replace '\\', '/')
+if ((Test-Path $settings) -and ((Get-Content $settings -Raw -Encoding UTF8) -match '"language":\s*"(\w+)"')) {
+    $settingsLanguage = $Matches[1]   # aktualizacja nie zmienia wybranego wczesniej jezyka
+}
 $template = $template -replace '"language": "polish"', ("""language"": ""{0}""" -f $settingsLanguage)
-if (-not (Test-Path $settings) -or (Get-Content $settings -Raw -Encoding UTF8) -notmatch [regex]::Escape(($root -replace '\\', '/'))) {
-    [IO.File]::WriteAllText($settings, $template, (New-Object Text.UTF8Encoding $false))   # także po przeniesieniu folderu
+# także po przeniesieniu folderu i po aktualizacji, ktora dodaje hooki (np. blokada bram w Home Assistant)
+if (-not (Test-Path $settings) -or (Get-Content $settings -Raw -Encoding UTF8) -ne $template) {
+    [IO.File]::WriteAllText($settings, $template, (New-Object Text.UTF8Encoding $false))
     Write-Host "Utworzono .claude\settings.json (hooki odpowiedzi głosowej)."
 }
 

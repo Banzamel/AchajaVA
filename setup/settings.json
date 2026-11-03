@@ -5,6 +5,19 @@
     "mode": "tap"
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__home-assistant__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "__PROJECT_DIR__/.venv/Scripts/python.exe",
+            "args": ["__PROJECT_DIR__/.claude/scripts/hook_ha.py"],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
