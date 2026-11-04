@@ -73,6 +73,19 @@
     "_hang_minutes": "Agent bez żadnego postępu przez tyle minut jest przerywany (0 = nigdy). / An agent with no progress for this many minutes is stopped (0 = never)."
   },
 
+  "jobs": {
+    "timeout_minutes": 30,
+    "_timeout_minutes": "Zadanie w tle (plan.py --job) dłuższe niż tyle minut jest przerywane. / A background task running longer than this is stopped."
+  },
+
+  "backup": {
+    "auto": true,
+    "every_hours": 24,
+    "keep": 10,
+    "folder": "",
+    "_folder": "Pusty = Dokumenty\\Achaja - kopie. Kopia zawiera hasła i tokeny - nie trzymaj jej w publicznym miejscu. / Empty = Documents\\Achaja - kopie. Backups hold passwords and tokens."
+  },
+
   "home_assistant": {
     "_comment": "Opcjonalne: wymaga integracji MCP w Home Assistant i tokenu w state/ha_token.txt. / Optional: needs the HA MCP integration and a token in state/ha_token.txt.",
     "url": "http://homeassistant.local:8123"

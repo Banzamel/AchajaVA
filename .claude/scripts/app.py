@@ -21,6 +21,7 @@ import subprocess
 import threading
 import time
 
+import app_tabs
 import avatar
 import ornament
 import listener
@@ -63,6 +64,8 @@ TEXT = {
         "upd_none": "Masz najnowszą wersję ({}).", "upd_error": "Nie udało się sprawdzić aktualizacji: {}",
         "upd_noasset": "Wydanie {} nie ma jeszcze instalatora — spróbuję później.",
         "config_changed": "Zmieniono ustawienia — uruchamiam nasłuch ponownie.",
+        "backup": "Zrób kopię zapasową", "backup_dir": "Otwórz folder kopii",
+        "backup_done": "Kopia zapasowa zapisana: {} ({} plików).", "backup_err": "Kopia zapasowa nie powiodła się: {}",
         "copy": "Kopiuj", "copy_sel": "Kopiuj zaznaczenie", "copy_all": "Kopiuj całą odpowiedź",
         "copied": "Skopiowano", "empty_title": "Cześć, tu Achaja",
         "empty": "Powiedz słowo wybudzenia albo napisz wiadomość poniżej.",
@@ -102,6 +105,8 @@ TEXT = {
         "upd_none": "You have the latest version ({}).", "upd_error": "Could not check for updates: {}",
         "upd_noasset": "Release {} has no installer yet — I will try later.",
         "config_changed": "Settings changed — restarting the listener.",
+        "backup": "Back up now", "backup_dir": "Open the backup folder",
+        "backup_done": "Backup saved: {} ({} files).", "backup_err": "Backup failed: {}",
         "copy": "Copy", "copy_sel": "Copy selection", "copy_all": "Copy the whole answer",
         "copied": "Copied", "empty_title": "Hi, this is Achaja",
         "empty": "Say the wake word or type a message below.",
@@ -126,7 +131,7 @@ STATE_COLORS = {"idle": "green", "wake": "red", "rec": "red", "busy": "orange", 
 TERM_KEYS = (("↑", ["up"]), ("↓", ["down"]), ("Enter", ["enter"]), ("Esc", ["esc"]),
              ("1", ["text:1"]), ("2", ["text:2"]), ("3", ["text:3"]))
 TERM_HISTORY = 300  # linie konsoli nad widocznym oknem w zakladce Terminal
-LAYOUT = 2  # zmiana ukladu okna - stara zapamietana geometria (szerokie okno) nie jest wtedy uzywana
+LAYOUT = 3  # zmiana ukladu okna - stara zapamietana geometria (szerokie okno) nie jest wtedy uzywana
 
 
 class Bridge:
@@ -404,7 +409,7 @@ class App:
         root.withdraw()  # pokazujemy dopiero gotowe okno (bez mrugniecia jasnym tlem)
         root.title("Achaja")
         saved = read_json(WINDOW_FILE, {})
-        root.geometry(saved.get("geometry") if saved.get("layout") == LAYOUT else "440x780")
+        root.geometry(saved.get("geometry") if saved.get("layout") == LAYOUT else "540x780")
         root.minsize(360, 520)
         if ICON.exists():
             root.iconbitmap(default=str(ICON))
@@ -419,6 +424,8 @@ class App:
         self.build_chat(nb)
         self.build_terminal(nb)
         self.build_agents(nb)
+        self.plan_tab = app_tabs.PlanTab(self, nb)
+        self.claude_tab = app_tabs.ClaudeTab(self, nb)
         self.build_log(nb)
         self.paint()
         threading.Thread(target=self.watch_screen, daemon=True).start()
@@ -449,6 +456,8 @@ class App:
             ("▣", t["console"], self.toggle_console),
             ("⟳", t["restart"], self.restart_listener),
             ("⇩", t["check_update"], lambda: self.check_update(manual=True)),
+            ("⛁", t["backup"], self.backup_now),
+            ("▤", t["backup_dir"], self.open_backups),
             ("ⓘ", t["about"], self.about),
             None,
             ("⏻", t["quit"], self.quit),
@@ -643,6 +652,8 @@ class App:
         th.text(self.term_text)
         th.text(self.log_text)
         th.listbox(self.agent_list)
+        self.plan_tab.paint()
+        self.claude_tab.paint()
         self.menu.close()  # otworzy sie w nowych kolorach
         self.chat.tag_configure("who", foreground=p["muted"], font=(FONT_BOLD, 9), spacing1=th.px(12))
         self.chat.tag_configure("meta", foreground=p["faint"], font=(FONT, 8), spacing1=th.px(12))
@@ -984,6 +995,24 @@ class App:
     def edit_config(self):
         subprocess.Popen(["notepad.exe", str(CONFIG)], creationflags=DETACHED_PROCESS, close_fds=True)
 
+    def backup_now(self):
+        import backup
+
+        def work():
+            try:
+                name, count = backup.create()
+                self.calls.put(lambda: self.add_note(self.t["backup_done"].format(name.name, count)))
+            except Exception as exc:
+                self.calls.put(lambda: self.add_note(self.t["backup_err"].format(exc)))
+        threading.Thread(target=work, daemon=True).start()
+
+    def open_backups(self):
+        import backup
+        folder = backup.settings()[0]
+        folder.mkdir(parents=True, exist_ok=True)
+        subprocess.Popen(["explorer.exe", str(folder)], creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW,
+                         close_fds=True)
+
     def about(self):
         from tkinter import messagebox
         messagebox.showinfo("Achaja", self.t["about_text"].format(__version__), parent=self.root)
@@ -1123,6 +1152,11 @@ class App:
             self.add_note(self.t["config_changed"])
             self.restart_listener()
         self.ticks += 1
+        current = self.nb.select() if self.visible else ""
+        if self.ticks % 7 == 2 and current == str(self.plan_tab.frame):
+            self.plan_tab.refresh()
+        if self.ticks % 10 == 5:
+            self.claude_tab.tick(current == str(self.claude_tab.frame))
         if self.ticks % 3 == 1:  # agenci mniej wiecej co sekunde
             self.refresh_agents()
         if self.ticks % 10 == 0 and self.theme.stale():  # zmiana trybu jasny/ciemny w Windows

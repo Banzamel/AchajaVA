@@ -434,6 +434,7 @@ def run(args, ui):
     remind_max = cfg["voice"].get("working_reminder_max_seconds", 900)
     last_reminder = 0.0
     last_plan = 0.0  # przypomnienia i zadania o czasie (plan.py)
+    last_backup = time.time() - 540  # pierwsze sprawdzenie kopii ok. minuty po starcie
     wake_replies = cfg["voice"].get("wake_replies",
                                     ["Słucham."] if cfg.get("language", "pl") == "pl" else ["Yes?"])
     wake_clips = []
@@ -644,19 +645,29 @@ def run(args, ui):
             if now - last_plan >= 15:
                 last_plan = now
                 try:
-                    kinds = set()
+                    kinds = {"job"}  # zadania w tle ida zawsze - to osobna sesja Claude
                     if state == IDLE:  # nie wchodzimy w nagrywanie
                         kinds.add("say")
                         work = read_json(STATE / "achaja_state.json", {})
                         if work.get("state", "idle") == "idle" and not speaking():
                             kinds.add("prompt")  # polecenie tylko, gdy Achaja nic nie robi
-                    for kind, text in plan.take_due(kinds) if kinds else []:
-                        if kind == "say":
-                            say(text)
-                            log(f"Przypomnienie: {text}")
+                    for due in plan.take_due(kinds):
+                        if due["kind"] == "say":
+                            say(due["text"])
+                            log(f"Przypomnienie: {due['text']}")
+                        elif due["kind"] == "job":
+                            import jobs
+                            log(f"Zadanie w tle '{due['item'].get('name')}': {jobs.start(due['item'])}")
                         else:
-                            submit(f"{plan.SCHEDULED} {text}")
-                            log(f"Zaplanowane polecenie: {text}")
+                            submit(f"{plan.SCHEDULED} {due['text']}")
+                            log(f"Zaplanowane polecenie: {due['text']}")
+                    if now - last_backup >= 600:
+                        last_backup = now
+                        import backup
+                        if backup.due():
+                            subprocess.Popen([str(PYTHONW), str(SCRIPTS / "backup.py"), "auto"], cwd=str(SCRIPTS),
+                                             creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+                            log("Kopia zapasowa ustawien i danych (backup.py auto).")
                 except Exception as exc:
                     log(f"BLAD planu (plan.py): {exc!r}")
             if chunk is None:

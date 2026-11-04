@@ -6,7 +6,8 @@ i narzedzia MCP, ktore wysylaja lub usuwaja, przechodza tylko w turze, ktora zac
 brzmiacy jak zgoda ("tak", "potwierdzam", "wyslij"...). Zgode zapisuje hook_event.py (UserPromptSubmit)
 w state/approval.json, a hook_stop.py kasuje ja na koncu tury - nie przechodzi na kolejne tury.
 Tekst z maila, strony czy wyniku agenta nie jest promptem uzytkownika, wiec nie moze udzielic zgody.
-Dziala tylko w sesji Achai (ACHAJA_SESSION); agenci projektow maja wlasne zasady.
+Dziala w sesji Achai (ACHAJA_SESSION) i w zadaniach w tle (ACHAJA_JOB): tam przechodza tylko kategorie
+ze stalych zgod zadania (ACHAJA_JOB_ALLOW, plan.py --allow); "system" nigdy. Agenci projektow maja wlasne zasady.
 """
 import json
 import os
@@ -21,21 +22,27 @@ APPROVAL_TTL = 30 * 60
 SCHEDULED = "[ZAPLANOWANE]"  # prefiks promptow z plan.py (plan.SCHEDULED) - nigdy nie sa zgoda
 
 _ARGS = r"[^\n|;&]*"
+# (wzorzec, opis, kategoria) - kategorie to tez nazwy stalych zgod zadan w tle (plan.py --allow);
+# "system" nigdy nie jest zgoda stala: tylko "tak" uzytkownika w rozmowie
 COMMANDS = [
-    (rf"\bgit\b{_ARGS}\bpush\b", "git push"),
-    (rf"\bgit\b{_ARGS}\breset\b{_ARGS}--hard\b", "git reset --hard"),
-    (rf"\bgit\b{_ARGS}\bclean\b{_ARGS}\s-\w*f", "git clean"),
-    (rf"\bgit\b{_ARGS}\bbranch\b{_ARGS}\s-D\b", "usuniecie galezi"),
-    (r"\b(?:remove-item|rm|rmdir|rd|del|erase|ri|shred|unlink)\b\s", "usuwanie plikow"),
-    (r"\b(?:clear-recyclebin|format-volume|diskpart)\b|\bformat(?:\.com)?\s+[a-z]:", "czyszczenie dysku"),
-    (r"\b(?:stop-computer|restart-computer|shutdown)\b", "wylaczenie komputera"),
+    (rf"\bgit\b{_ARGS}\bpush\b", "git push", "push"),
+    (rf"\bgit\b{_ARGS}\breset\b{_ARGS}--hard\b", "git reset --hard", "delete"),
+    (rf"\bgit\b{_ARGS}\bclean\b{_ARGS}\s-\w*f", "git clean", "delete"),
+    (rf"\bgit\b{_ARGS}\bbranch\b{_ARGS}\s-D\b", "usuniecie galezi", "delete"),
+    (r"\b(?:remove-item|rm|rmdir|rd|del|erase|ri|shred|unlink)\b\s", "usuwanie plikow", "delete"),
+    (r"\b(?:clear-recyclebin|format-volume|diskpart)\b|\bformat(?:\.com)?\s+[a-z]:", "czyszczenie dysku", "system"),
+    (r"\b(?:stop-computer|restart-computer|shutdown)\b", "wylaczenie komputera", "system"),
     (r"\b(?:npm|pnpm|yarn)\s+publish\b|\btwine\s+upload\b|\bfirebase\s+deploy\b|\bvercel\b[^\n]*--prod"
      r"|\bkubectl\s+(?:apply|delete)\b|\bterraform\s+(?:apply|destroy)\b|\bgh\s+release\s+create\b",
-     "deploy lub publikacja"),
-    (r"mail\.py[\"']?\s+(?:send|reply)\b(?![^\n]*--(?:draft|dry-run))", "wyslanie maila"),
-    (r"\bha\.py\b[^\n]*--confirmed", "zamek, brama, garaz lub alarm"),
-    (r"update\.py[\"']?\s+install\b", "instalacja aktualizacji"),
-    (r"\bsend-mailmessage\b", "wyslanie maila"),
+     "deploy lub publikacja", "deploy"),
+    (r"mail\.py[\"']?\s+(?:send|reply)\b(?![^\n]*--(?:draft|dry-run))", "wyslanie maila", "mail"),
+    (r"\bsend-mailmessage\b", "wyslanie maila", "mail"),
+    (r"\bha\.py\b[^\n]*--confirmed", "zamek, brama, garaz lub alarm", "home"),
+    (r"update\.py[\"']?\s+install\b", "instalacja aktualizacji", "system"),
+    (r"plan\.py[\"']?\s+add\b[^\n]*--allow", "stala zgoda dla zadania w tle", "system"),
+    (r"claude_data\.py[\"']?\s+(?:delete-session|delete-project)\b|claude_data\.py[\"']?\s+clean\b[^\n]*--apply",
+     "usuniecie sesji Claude", "delete"),
+    (r"backup\.py[\"']?\s+restore\b", "przywrocenie kopii zapasowej", "system"),
 ]
 MCP_RISKY = re.compile(r"send|trash|delete|remove|forward|reply|publish|merge|push|transfer|pay|purchase|order",
                        re.IGNORECASE)
@@ -78,17 +85,17 @@ def approved():
 
 
 def risky(tool, args):
-    """Opis ryzykownej akcji albo None."""
+    """(opis, kategoria) ryzykownej akcji albo None."""
     if tool in ("Bash", "PowerShell"):
         command = str(args.get("command", ""))
-        for pattern, what in COMMANDS:
+        for pattern, what, category in COMMANDS:
             if re.search(pattern, command, re.IGNORECASE):
-                return what
+                return what, category
         return None
     if tool.startswith("mcp__") and not tool.startswith("mcp__home-assistant__"):  # HA pilnuje hook_ha.py
         name = tool.split("__")[-1]
         if MCP_RISKY.search(name) and not MCP_SAFE.search(name):
-            return f"narzedzie {name}"
+            return f"narzedzie {name}", "mcp"
     return None
 
 
@@ -103,15 +110,30 @@ def deny(what):
     return 0
 
 
+def deny_job(what):
+    json.dump({"hookSpecificOutput": {
+        "hookEventName": "PreToolUse",
+        "permissionDecision": "deny",
+        "permissionDecisionReason":
+            f"ZADANIE W TLE NIE MA ZGODY: {what}. Nie obchodz tego innym poleceniem. Przygotuj szkic, jesli sie "
+            "da (np. mail.py reply --draft), i opisz w raporcie, co czeka na decyzje uzytkownika."}}, sys.stdout)
+    return 0
+
+
 def main():
     data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig") or "{}")
-    if not os.environ.get("ACHAJA_SESSION"):
+    job = os.environ.get("ACHAJA_JOB")
+    if not os.environ.get("ACHAJA_SESSION") and not job:
         return 0
     args = data.get("tool_input") or {}
-    what = risky(str(data.get("tool_name", "")), args if isinstance(args, dict) else {})
-    if what and not approved():
-        return deny(what)
-    return 0
+    hit = risky(str(data.get("tool_name", "")), args if isinstance(args, dict) else {})
+    if not hit:
+        return 0
+    what, category = hit
+    if job:  # zadanie w tle: tylko stale zgody nadane przy jego tworzeniu (plan.py --allow, za "tak")
+        allowed = {a for a in os.environ.get("ACHAJA_JOB_ALLOW", "").split(",") if a}
+        return 0 if category in allowed and category != "system" else deny_job(what)
+    return 0 if approved() else deny(what)
 
 
 if __name__ == "__main__":

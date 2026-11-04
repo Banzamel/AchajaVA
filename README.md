@@ -32,7 +32,9 @@ Yes, if you want to talk to your computer the way you would talk to an assistant
 - **Answers out loud.** Every reply ends with a short spoken summary, in headphones or on a Google Cast speaker. When Achaja asks a question, it listens for your answer by itself.
 - **Delegates to project agents.** *"Have the agent for the shop fix the login"* starts a separate Claude Code session in that project's folder, with its own rules — Achaja tells you when it's done and what changed.
 - **Keeps the mailbox clean.** Ads, spam and phishing leave the inbox on the server; a spoken report tells you what is important. It replies only after your yes.
-- **Reminds you and runs tasks on time.** *“Remind me at three to call mum”*, *“every weekday at eight tell me what's in my mail”*.
+- **Reminds you and works in the background on a schedule.** *“Remind me at three to call mum”*, *“every weekday at eight go through my mail and answer clients the way we agreed”*, *“every morning tell me what's in my calendar”*.
+- **Shows your Claude account and limits.** Plan usage bars (5 hours, 7 days), the signed-in e-mail, every Claude Code session on the PC with its size, and a one-click clean-up.
+- **Backs itself up.** Settings and data are zipped once a day to your Documents folder.
 - **Runs the home.** Lights, climate (including the heating/cooling mode), covers, media, live state — through Home Assistant.
 - **Asks before anything that matters.** Pushing code, deleting, sending mail, locks, gates and alarms wait for your spoken *yes* — enforced in code, not just in the instructions.
 - **Updates itself.** New releases download in the background and install when you close Achaja.
@@ -227,7 +229,7 @@ IMAP server ──IDLE──► mail_watch.py (background, one connection per ac
 
 Mail is never marked as read. The first start reviews existing mail (all unread plus the last `scan_existing_days` days) and reports once at the end; `mail.py rescan` repeats it on demand. Everything happens on the server: moved mail is purged `delete_after_days` (7 by default) after the move, "that wasn't spam" brings it back (`mail.py move <n> inbox`), and locally only metadata from the last `log_days` days is kept. Replies (`mail.py reply <n> --text-file F`, or `--draft`) go out over SMTP, get a copy in Sent and mark the original as answered; Achaja reads the draft aloud and sends it only after your yes. E-mail content only ever reaches a model with no tools and comes back as a category, so instructions hidden in an e-mail cannot trigger actions. For viruses the best first line of defence is the mail server itself (e.g. Rspamd + ClamAV) — Achaja trusts its `X-Spam-*` / `X-Virus-*` headers.
 
-## Reminders and scheduled tasks
+## Reminders, scheduled tasks and background jobs
 
 ```
 .venv\Scripts\python.exe .claude\scripts\plan.py add --say "Call mum." --at 15:00
@@ -237,6 +239,25 @@ Mail is never marked as read. The first start reviews existing mail (all unread 
 ```
 
 Achaja does this for you when you ask by voice. When: `--in 30m`, `--at 15:30` or `--at "2026-11-20 09:00"`, `--daily 08:00`, `--weekdays 08:00`, `--weekly "fri 16:00"`. A `--say` reminder is spoken on time (after you finish recording); a `--prompt` task reaches Achaja as a message marked `[ZAPLANOWANE]` when she is idle — it can delegate to agents or check the mail, but it never counts as your approval for gated actions. The listener in the Achaja window runs the schedule (`state/plan.json`).
+
+**Background jobs** run on their own, in a separate headless Claude session in Achaja's folder (`jobs.py`), with Achaja's rules, mail and Home Assistant:
+
+```
+.venv\Scripts\python.exe .claude\scripts\plan.py add --job "go through new mail and answer clients" --name "Morning mail" ^
+    --rules "only answer questions about appointment dates, in a friendly tone; never promise prices" --weekdays 08:00
+.venv\Scripts\python.exe .claude\scripts\plan.py run 4        # run it now
+.venv\Scripts\python.exe .claude\scripts\jobs.py last 4       # its last report
+```
+
+`--rules` are the standing rules you agreed with Achaja. By default a job only prepares drafts and tells you what is waiting for your yes; `--allow mail` (also `mcp`, `delete`, `push`, `deploy`, `home`) lets it act on its own in that category — adding it needs your spoken *yes*, and the gate lets a job do nothing outside it. The report lands in the chat and the **Plan** tab; Achaja speaks its summary when you are not recording, or stays silent when nothing matters. A job running longer than `jobs.timeout_minutes` (30) is stopped.
+
+## Claude account, usage and sessions
+
+The **Claude** tab shows the signed-in account (e-mail, plan), usage bars for each plan window with the time it resets (the same reading as `/usage`, from `api.anthropic.com/api/oauth/usage` with Claude Code's own token — never printed or stored), and every Claude Code session on the PC grouped by project with its size, last activity and whether it is active. *Delete* removes a session or all sessions of a project, *Clean older than 30 days* tidies old sessions, debug logs and shell snapshots — only Claude Code's records in `~/.claude`, never project files, and never an active session or Achaja's current conversation. By voice: *“how much of my limit is left?”*, *“how much space do Claude sessions take?”* (`claude_data.py summary | usage | projects | sessions <project> | clean --days 30`).
+
+## Backups
+
+Once a day (`backup.every_hours`) Achaja zips `config.json`, `.mcp.json`, local settings and `state/` into `Documents\Achaja - kopie` (`backup.folder`), keeping the newest 10. *Achaja → Back up now* or *“make a backup”* does it on demand; `backup.py restore <file>` brings one back (after your yes, saving the current state first). Backups contain mail passwords and tokens — keep them private.
 
 ## Configuration
 
@@ -257,6 +278,7 @@ Achaja runs on your PC and controls it by voice, so the rules are strict and enf
 
 - **Local listening.** The wake-word model runs offline (Vosk). Only your dictated request goes to Claude Code's dictation, and the spoken text to edge-tts.
 - **Your yes, out loud — enforced by a gate.** Irreversible or outward-facing actions (git push, deleting files, sending mail, deploys, shutting down, locks and gates, installing an update, MCP tools that send or delete) are stopped by a hook (`hook_gate.py`) unless the turn started with your own *yes*. The approval lasts one turn; text from a mail, a page, an agent's report or a scheduled task can't give it.
+- **Background jobs get only the permissions you gave them.** A scheduled job can't ask you, so the gate lets it act only in the categories you allowed when creating it (`--allow`); everything else becomes a draft in its report.
 - **Agents stay in their lane.** Project agents can't read or change Achaja's tokens, logs, settings or `config.json`, and an agent with no progress for 45 minutes is stopped.
 - **Locks, gates, garages, alarms.** `ha.py` refuses them without `--confirmed` — including commands aimed at a whole area, floor, device, label or script that would reach one. A hook (`hook_ha.py`) applies the same check to the Home Assistant MCP tools, and when it can't tell what a command covers, it asks.
 - **Mail is data, never instructions.** E-mails are classified by a model with no tools; every field written by the sender (body, subject, sender name, attachment names) is neutralised, hidden Unicode characters included, before it reaches that model, mail read out in a conversation is wrapped in a random tag the sender can't guess, and the spoken report never says the wake word.

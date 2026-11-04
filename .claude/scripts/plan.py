@@ -4,8 +4,17 @@ Uzycie:
   plan.py add --say "tekst"    KIEDY     przypomnienie czytane na glos
   plan.py add --prompt "tekst" KIEDY     polecenie dla Achai o czasie (np. "co nowego w poczcie",
                                           "niech agent od sklepu sprawdzi bledy") - jak wpisane w okno czatu
+  plan.py add --job "tekst" --name N  KIEDY  [--rules "zasady"] [--allow mail,...]
+                                         zadanie W TLE (jobs.py): osobna sesja Claude wykonuje je samodzielnie,
+                                         np. "przejrzyj poczte i odpisz klientom wg zasad", "sprawdz kalendarz";
+                                         wynik Achaja mowi (albo milczy, gdy nic waznego) i zapisuje w zakladce Plan
   plan.py list                           co jest zaplanowane
   plan.py remove <id>|all                usuwa
+  plan.py run <id>                       zadanie w tle uruchom teraz (poza harmonogramem)
+
+--allow: STALA ZGODA zadania na akcje z bramki bez pytania (mail = wysylanie odpowiedzi/maili,
+  mcp = narzedzia MCP, ktore wysylaja; delete, push, deploy, home). Bez niej zadanie tylko przygotowuje
+  szkice i opisuje, co trzeba zatwierdzic. Dodanie --allow samo wymaga "tak" uzytkownika (bramka).
 
 KIEDY (jedno z):
   --in 30m | 2h | 1d | 1h30m             za tyle czasu
@@ -29,6 +38,8 @@ from datetime import datetime, timedelta
 from common import STATE, read_json, write_json
 
 PLAN = STATE / "plan.json"
+ALLOW = ("mail", "mcp", "delete", "push", "deploy", "home")  # kategorie bramki (hook_gate.CATEGORIES)
+KIND_NAMES = {"say": "przypomnienie", "prompt": "polecenie", "job": "zadanie w tle"}
 SCHEDULED = "[ZAPLANOWANE]"  # prefiks polecen - hook_gate.py nie traktuje ich jako zgody
 LATE_REPEAT = 3600
 DAYS = {"pon": 0, "pn": 0, "mon": 0, "wt": 1, "wto": 1, "tue": 1, "sr": 2, "sro": 2, "wed": 2, "czw": 3,
@@ -108,29 +119,56 @@ def load():
 
 
 def cmd_add(args):
-    if bool(args.say) == bool(args.prompt):
-        raise ValueError("Podaj --say (przypomnienie) albo --prompt (polecenie dla Achai).")
+    given = [k for k in ("say", "prompt", "job") if getattr(args, k)]
+    if len(given) != 1:
+        raise ValueError("Podaj jedno: --say (przypomnienie), --prompt (polecenie) albo --job (zadanie w tle).")
+    kind = given[0]
+    allow = sorted({a.strip().lower() for a in (args.allow or "").split(",") if a.strip()})
+    bad = [a for a in allow if a not in ALLOW]
+    if bad:
+        raise ValueError(f"Nieznane zgody: {', '.join(bad)}. Dozwolone: {', '.join(ALLOW)}.")
+    if kind != "job" and (allow or args.rules):
+        raise ValueError("--rules i --allow sa tylko dla zadan w tle (--job).")
     now = datetime.now()
     first, repeat = parse_when(args, now)
     if first <= now:
         raise ValueError("Ten termin juz minal.")
     data = load()
-    item = {"id": data.get("next_id", 1), "kind": "say" if args.say else "prompt",
-            "text": " ".join((args.say or args.prompt).split()), "next": first.timestamp(), "repeat": repeat}
+    item = {"id": data.get("next_id", 1), "kind": kind, "text": " ".join(getattr(args, kind).split()),
+            "next": first.timestamp(), "repeat": repeat}
+    if kind == "job":
+        item.update(name=(args.name or item["text"][:40]).strip(), rules=(args.rules or "").strip(), allow=allow)
     data["items"].append(item)
     data["next_id"] = item["id"] + 1
     write_json(PLAN, data)
+    extra = f" | zgody: {', '.join(allow)}" if allow else ""
     print(f"Zaplanowano [{item['id']}] {first:%d.%m %H:%M} ({describe_repeat(repeat)}): "
-          f"{'przypomnienie' if item['kind'] == 'say' else 'polecenie'} - {item['text']}")
+          f"{KIND_NAMES[kind]} - {item.get('name') or item['text']}{extra}")
+
+
+def describe(i):
+    line = (f"[{i['id']}] {datetime.fromtimestamp(i['next']):%d.%m %H:%M} | {describe_repeat(i.get('repeat'))} | "
+            f"{KIND_NAMES.get(i['kind'], i['kind'])}: ")
+    if i["kind"] == "job":
+        line += f"{i.get('name')} - {i['text']}"
+        if i.get("rules"):
+            line += f" | zasady: {i['rules']}"
+        if i.get("allow"):
+            line += f" | zgody: {', '.join(i['allow'])}"
+        return line
+    return line + i["text"]
+
+
+def items():
+    return sorted(load()["items"], key=lambda i: i["next"])
 
 
 def cmd_list():
-    items = sorted(load()["items"], key=lambda i: i["next"])
-    if not items:
+    rows = items()
+    if not rows:
         print("Nic nie jest zaplanowane.")
-    for i in items:
-        print(f"[{i['id']}] {datetime.fromtimestamp(i['next']):%d.%m %H:%M} | {describe_repeat(i.get('repeat'))} | "
-              f"{'przypomnienie' if i['kind'] == 'say' else 'polecenie'}: {i['text']}")
+    for i in rows:
+        print(describe(i))
 
 
 def cmd_remove(target):
@@ -144,33 +182,38 @@ def cmd_remove(target):
 
 def take_due(kinds, now=None):
     """Dla listenera: zadania do wykonania teraz (tylko podanych rodzajow) - przesuwa je na kolejny termin
-    albo usuwa. Zwraca liste (rodzaj, tekst)."""
+    albo usuwa. Zwraca liste slownikow {kind, text, item}."""
     now = now or time.time()
     data = load()
     due, keep, changed = [], [], False
     for item in data["items"]:
-        stale_prompt = item["kind"] == "prompt" and not item.get("repeat") and now - item["next"] > 6 * 3600
-        if item["next"] > now or (item["kind"] not in kinds and not (stale_prompt and "say" in kinds)):
+        stale = item["kind"] in ("prompt", "job") and not item.get("repeat") and now - item["next"] > 6 * 3600
+        if item["next"] > now or (item["kind"] not in kinds and not (stale and "say" in kinds)):
             keep.append(item)
             continue
         changed = True
         late = now - item["next"]
         if item.get("repeat"):
             if late <= LATE_REPEAT:
-                due.append((item["kind"], item["text"]))
+                due.append({"kind": item["kind"], "text": item["text"], "item": dict(item)})
             item["next"] = next_time(item["repeat"], datetime.fromtimestamp(now)).timestamp()
             keep.append(item)
         else:
             kind, text, at = item["kind"], item["text"], datetime.fromtimestamp(item["next"])
-            if kind == "prompt" and late > 6 * 3600:  # stare polecenie nie rusza samo - tylko o nim mowimy
-                kind, text = "say", f"Przegapiłam zaplanowane polecenie z {at:%d.%m %H:%M}: {text}"
+            if stale:  # stare polecenie albo zadanie nie rusza samo - tylko o nim mowimy
+                kind, text = "say", f"Przegapiłam zaplanowane {KIND_NAMES[item['kind']]} z {at:%d.%m %H:%M}: " \
+                                    f"{item.get('name') or text}"
             elif kind == "say" and late > 300:
                 text = f"Spóźnione przypomnienie z {at:%H:%M}: {text}"
-            due.append((kind, text))
+            due.append({"kind": kind, "text": text, "item": dict(item)})
     if changed:
         data["items"] = keep
         write_json(PLAN, data)
     return due
+
+
+def find(item_id):
+    return next((i for i in load()["items"] if str(i["id"]) == str(item_id)), None)
 
 
 def main(argv=None):
@@ -179,6 +222,10 @@ def main(argv=None):
     a = sub.add_parser("add")
     a.add_argument("--say")
     a.add_argument("--prompt")
+    a.add_argument("--job")
+    a.add_argument("--name")
+    a.add_argument("--rules")
+    a.add_argument("--allow")
     a.add_argument("--in", dest="in_")
     a.add_argument("--at")
     a.add_argument("--daily")
@@ -186,12 +233,19 @@ def main(argv=None):
     a.add_argument("--weekly")
     sub.add_parser("list")
     sub.add_parser("remove").add_argument("target")
+    sub.add_parser("run").add_argument("target")
     args = ap.parse_args(argv)
     try:
         if args.cmd == "add":
             cmd_add(args)
         elif args.cmd == "list":
             cmd_list()
+        elif args.cmd == "run":
+            item = find(args.target)
+            if not item or item["kind"] != "job":
+                raise ValueError(f"Nie ma zadania w tle {args.target}.")
+            import jobs
+            print(f"Uruchomiono zadanie '{item.get('name')}' w tle: {jobs.start(item)}")
         else:
             cmd_remove(args.target)
     except ValueError as exc:

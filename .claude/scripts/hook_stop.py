@@ -45,6 +45,8 @@ def lang():
 
 def main():
     data = json.loads(sys.stdin.buffer.read().decode("utf-8-sig") or "{}")
+    if os.environ.get("ACHAJA_JOB"):
+        return  # zadanie w tle: wynik mowi jobs.py, kiedy nikt nie nagrywa
     message = data.get("last_assistant_message", "") or ""
     session = bool(os.environ.get("ACHAJA_SESSION"))
     if session and message.strip() and not MARKER.search(message) and not data.get("stop_hook_active"):
