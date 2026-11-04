@@ -27,9 +27,10 @@ import winsound
 
 from achaja.plan import plan
 from achaja.voice.audio_out import request_stop
+from achaja.core import console
 from achaja.core.common import (CREATE_NEW_CONSOLE, CREATE_NO_WINDOW, DETACHED_PROCESS, PYTHON, PYTHONW, ROOT,
-                    STATE, clean_env, load_config, model_dir, pick_device, pid_alive, process_name, read_json,
-                    single_instance, write_json)
+                    STATE, __version__, clean_env, load_config, model_dir, pick_device, pid_alive, process_name,
+                    read_json, single_instance, write_json)
 
 IDLE, RECORDING = "czekam na 'Achaja'", "NAGRYWAM ('wykonaj' / 'anuluj' / 'nowa rozmowa')"
 
@@ -392,7 +393,7 @@ def run(args, ui):
     import sounddevice as sd
     import vosk
 
-    INPROCESS = not __import__("console").has_own_console()
+    INPROCESS = not console.has_own_console()
     cfg = load_config()
     wake, end, cancel = cfg["wake"]["phrases"], cfg["wake"]["end"], cfg["wake"]["cancel"]
     clear = cfg["wake"].get("clear", [])
@@ -407,13 +408,22 @@ def run(args, ui):
 
     (STATE / "followup.json").unlink(missing_ok=True)
     pid = args.pid
-    previous = read_json(STATE / "listener.json", {}).get("claude_pid")
+    last = read_json(STATE / "listener.json", {})
+    previous = last.get("claude_pid")
+    resume = args.resume
     if not pid and previous and process_name(previous) == "claude.exe":
-        pid = previous
-        log(f"Okno Achai juz jest otwarte (PID {pid}) - podpinam sie do niego.")
+        if last.get("version") == __version__:
+            pid = previous
+            log(f"Okno Achai juz jest otwarte (PID {pid}) - podpinam sie do niego.")
+        else:
+            # sesja sprzed aktualizacji ma stare hooki i CLAUDE.md - zamykamy ja i kontynuujemy rozmowe w nowej
+            log(f"Sesja Claude (PID {previous}) pochodzi z poprzedniej wersji - uruchamiam ja od nowa.")
+            subprocess.run(["taskkill", "/PID", str(previous), "/T", "/F"], capture_output=True,
+                           creationflags=CREATE_NO_WINDOW)
+            resume = True
     if not pid:
-        pid = launch_achaja(args.resume, hidden=ui.hidden)
-    write_json(STATE / "listener.json", {"listener_pid": os.getpid(), "claude_pid": pid})
+        pid = launch_achaja(resume, hidden=ui.hidden)
+    write_json(STATE / "listener.json", {"listener_pid": os.getpid(), "claude_pid": pid, "version": __version__})
     start_mail_watch(cfg)
 
     audio = queue.Queue()
