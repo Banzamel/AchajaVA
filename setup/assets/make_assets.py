@@ -8,8 +8,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = Path(__file__).resolve().parent
-TOP, BOTTOM = (200, 62, 66), (112, 24, 30)       # karmazyn jak w oknie Achai
+TOP, BOTTOM = (12, 34, 26), (2, 7, 5)          # czern z zielenia jak w oknie Achai
 WHITE = (255, 255, 255)
+NEON = (22, 229, 132)                            # neonowa zielen (theme.py: accent)
+TRACE = (19, 88, 60)                             # sciezki plytki (theme.py: trace)
 
 
 def gradient(size, top=TOP, bottom=BOTTOM):
@@ -24,7 +26,31 @@ def gradient(size, top=TOP, bottom=BOTTOM):
     return img
 
 
-def glyph(draw, box, color=WHITE):
+def _add(img, light):
+    """Neonowa poswiata: rozmyte swiatlo dodane do obrazu."""
+    from PIL import ImageChops
+    return ImageChops.add(img.convert("RGB"), light.convert("RGB"))
+
+
+def traces(draw, size, width):
+    """Sciezki jak na plytce procesora: poziome linie z zalamaniem 45 stopni i przelotka na koncu."""
+    w, h = size
+    lw = max(1, round(width))
+    rows = 7
+    for i in range(rows):
+        y = h * (i + 0.5) / rows
+        left = i % 2 == 0
+        x0 = 0 if left else w
+        x1 = w * (0.18 + 0.05 * (i % 3)) if left else w * (0.82 - 0.05 * (i % 3))
+        dy = h / rows * (0.5 if i % 3 else -0.5)
+        x2 = x1 + (abs(dy) if left else -abs(dy))
+        x3 = x2 + (w * 0.08 if left else -w * 0.08)
+        draw.line([(x0, y), (x1, y), (x2, y + dy), (x3, y + dy)], fill=TRACE, width=lw, joint="curve")
+        r = lw * 1.8
+        draw.ellipse([x3 - r, y + dy - r, x3 + r, y + dy + r], outline=TRACE, width=lw)
+
+
+def glyph(draw, box, color=NEON):
     """Litera A z fala dzwieku zamiast poprzeczki. box = (x0, y0, x1, y1)."""
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
@@ -51,9 +77,19 @@ def icon(size=1024):
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     mask = Image.new("L", (size, size), 0)
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=size * 0.22, fill=255)
-    img.paste(gradient((size, size)), (0, 0), mask)
+    base = gradient((size, size))
+    traces(ImageDraw.Draw(base), (size, size), size * 0.012)
+    # poswiata litery: rozmyta kopia pod spodem
     m = size * 0.2
-    glyph(ImageDraw.Draw(img), (m, m * 1.05, size - m, size - m * 0.95))
+    box = (m, m * 1.05, size - m, size - m * 0.95)
+    glow = Image.new("RGB", (size, size), (0, 0, 0))
+    glyph(ImageDraw.Draw(glow), box)
+    base = _add(base, glow.filter(ImageFilter.GaussianBlur(size * 0.035)))
+    d = ImageDraw.Draw(base)
+    glyph(d, box)
+    d.rounded_rectangle([size * 0.012, size * 0.012, size * 0.988, size * 0.988], radius=size * 0.21,
+                        outline=NEON, width=max(1, round(size * 0.025)))
+    img.paste(base, (0, 0), mask)
     return img
 
 
@@ -70,15 +106,20 @@ def wizard(size):
     w, h = size
     img = gradient(size)
     glow = Image.new("RGB", size, (0, 0, 0))
-    ImageDraw.Draw(glow).ellipse([-w * 0.6, h * 0.55, w * 1.6, h * 1.5], fill=(160, 130, 255))
-    img = Image.blend(img, glow.filter(ImageFilter.GaussianBlur(w * 0.25)), 0.25)
-    d = ImageDraw.Draw(img)
+    ImageDraw.Draw(glow).ellipse([-w * 0.6, h * 0.55, w * 1.6, h * 1.5], fill=NEON)
+    img = Image.blend(img, glow.filter(ImageFilter.GaussianBlur(w * 0.25)), 0.18)
+    traces(ImageDraw.Draw(img), size, max(1, w / 160))
     g = w * 0.46
-    glyph(d, ((w - g) / 2, h * 0.25, (w + g) / 2, h * 0.25 + g * 1.02))
+    box = ((w - g) / 2, h * 0.25, (w + g) / 2, h * 0.25 + g * 1.02)
+    halo = Image.new("RGB", size, (0, 0, 0))
+    glyph(ImageDraw.Draw(halo), box)
+    img = _add(img, halo.filter(ImageFilter.GaussianBlur(w * 0.04)))
+    d = ImageDraw.Draw(img)
+    glyph(d, box)
     f = font(round(w * 0.17))
     text = "Achaja"
     tw = d.textlength(text, font=f)
-    d.text(((w - tw) / 2, h * 0.25 + g * 1.02 + w * 0.12), text, font=f, fill=WHITE)
+    d.text(((w - tw) / 2, h * 0.25 + g * 1.02 + w * 0.12), text, font=f, fill=NEON)
     return img
 
 

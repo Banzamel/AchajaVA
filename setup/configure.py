@@ -385,9 +385,9 @@ class Wizard:
         root.minsize(760, 560)
         side = tk.Frame(root, background=p["surface"], padx=px(8), pady=px(14))
         side.pack(side="left", fill="y")
-        tk.Label(side, text=self.t["title_short"], font=("Georgia", 15, "bold"), background=p["surface"],
+        tk.Label(side, text=self.t["title_short"], font=(self.theme.mono, 15, "bold"), background=p["surface"],
                  foreground=p["accent_text"], anchor="w").pack(fill="x", padx=px(10), pady=(0, px(6)))
-        band = ornament.Band(side, px(12), "surface")  # haftowany pas jak w oknie Achai
+        band = ornament.Band(side, px(14), "surface")  # sciezki procesora jak w oknie Achai
         band.c.pack(fill="x", padx=px(10), pady=(0, px(12)))
         band.c.bind("<Configure>", lambda e: (setattr(band, "static", None), band.draw(self.theme.p)), add="+")
         self.side_rows = []

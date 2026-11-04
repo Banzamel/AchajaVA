@@ -3,26 +3,33 @@
 Jasny i ciemny motyw ttk (na bazie "clam"): zaokraglone przyciski, pola, zakladki i suwaki
 rysowane przez Pillow, jedna paleta dla calego programu i ciemny pasek tytulu w trybie ciemnym.
 Tryb ustawia config.json: app.theme = "auto" (jak aplikacje w Windows) | "light" | "dark".
-Kolorystyka w duchu slowianskiej wojowniczki: karmazyn haftu, zloto, ciemny dab noca i len za dnia.
+Kolorystyka "AI": czern i neonowa zielen, akcenty cyjanu, magenty, fioletu i bursztynu, sciezki jak na
+plytce procesora (ornament.py, avatar.py). Za dnia ta sama zielen na jasnym, mietowym tle.
 """
 import ctypes
 
 PALETTES = {
-    "light": {  # len, karmazyn, zloto
-        "bg": "#f4ede0", "surface": "#fffaf1", "surface2": "#efe5d3", "hover": "#eadcc5", "pressed": "#e0cfb2",
-        "border": "#ddcdb2", "text": "#2a1d17", "muted": "#76604f", "faint": "#ad9a85",
-        "accent": "#a82a2f", "accent_hover": "#bb3439", "accent_pressed": "#8e2126", "on_accent": "#fff8ec",
-        "accent_soft": "#f3dcd3", "accent_text": "#9a2529", "select": "#ecc9bd",
-        "green": "#4f7d3a", "red": "#b8262c", "orange": "#b7832a", "grey": "#9b8d7d", "note": "#8a5a14",
-        "gold": "#b8862b", "hair": "#c98f3a", "skin": "#f6d9bf", "flower2": "#3f66b8",
+    # powierzchnie neutralne (grafit / jasna szarosc) - czytelne i nie mecza oczu; neon tylko w liniach,
+    # ramkach i drobnych akcentach. accent_fill/mine - ciemne wypelnienia z neonowa ramka zamiast plaskiej zieleni.
+    "light": {
+        "bg": "#f2f4f4", "surface": "#ffffff", "surface2": "#eaeeee", "hover": "#e0e6e5", "pressed": "#d4dbda",
+        "border": "#d2d9d8", "text": "#16201d", "muted": "#596864", "faint": "#99a6a2",
+        "accent": "#0a9a5c", "accent_hover": "#0cb06a", "accent_pressed": "#087a49", "on_accent": "#ffffff",
+        "accent_soft": "#e4f3ec", "accent_text": "#087a49", "select": "#c9ebd9",
+        "accent_fill": "#f0f8f4", "mine": "#e8f4ef", "mine_line": "#8fd3b2",
+        "green": "#0a9a5c", "red": "#d1135a", "orange": "#b47500", "grey": "#8d9a96", "note": "#0a7f9c",
+        "gold": "#0a9fbf", "cyan": "#0a9fbf", "violet": "#7a3fe0",
+        "trace": "#9fd6bd", "trace2": "#9fd5e2", "trace3": "#c9b8ee",
     },
-    "dark": {  # ciemny dab, karmazyn, zloto
-        "bg": "#17110e", "surface": "#231a15", "surface2": "#2e231c", "hover": "#3a2c23", "pressed": "#47362b",
-        "border": "#3f3027", "text": "#f2e7d6", "muted": "#b8a48f", "faint": "#7a6756",
-        "accent": "#b8323a", "accent_hover": "#c94148", "accent_pressed": "#9c2830", "on_accent": "#fff6e8",
-        "accent_soft": "#3d1f1d", "accent_text": "#e8a07a", "select": "#5a2a26",
-        "green": "#7fae5a", "red": "#e2484f", "orange": "#e0aa4a", "grey": "#86766a", "note": "#e3b060",
-        "gold": "#d9a646", "hair": "#d39a45", "skin": "#efcfb2", "flower2": "#6f92e0",
+    "dark": {
+        "bg": "#0a0c0d", "surface": "#111416", "surface2": "#161a1d", "hover": "#1c2125", "pressed": "#22282c",
+        "border": "#262d31", "text": "#e3e8e6", "muted": "#95a29d", "faint": "#58645f",
+        "accent": "#19e08a", "accent_hover": "#4cf0a8", "accent_pressed": "#12b06c", "on_accent": "#04110b",
+        "accent_soft": "#13201b", "accent_text": "#62e6ab", "select": "#1f3a30",
+        "accent_fill": "#0f1a16", "mine": "#132019", "mine_line": "#1f7a52",
+        "green": "#45e39a", "red": "#ff4f8b", "orange": "#ffc75a", "grey": "#5d6864", "note": "#6fd8f0",
+        "gold": "#2bd8f5", "cyan": "#2bd8f5", "violet": "#b47cff",
+        "trace": "#1f5c43", "trace2": "#1b5260", "trace3": "#3d3166",
     },
 }
 FONT = "Segoe UI"
@@ -174,16 +181,19 @@ class Theme:
             ("disabled", p["surface2"], p["border"]), ("pressed", p["pressed"], p["border"]),
             ("active", p["hover"], p["border"]), ("", btn_fill, p["border"])], border=pad)
         self._element(style, "A.accent", size, r, [
-            ("disabled", blend(p["accent"], p["bg"], 0.55), None), ("pressed", p["accent_pressed"], None),
-            ("active", p["accent_hover"], None), ("", p["accent"], None)], border=pad)
+            # ciemne wnetrze, neonowa ramka - jak podswietlona sciezka, bez duzej plamy zieleni
+            ("disabled", p["surface2"], blend(p["accent"], p["bg"], 0.6)),
+            ("pressed", blend(p["accent_fill"], p["accent"], 0.18), p["accent_pressed"]),
+            ("active", blend(p["accent_fill"], p["accent"], 0.1), p["accent_hover"]),
+            ("", p["accent_fill"], p["accent"])], border=pad)
         self._element(style, "A.ghost", size, r, [
             ("pressed", p["pressed"], None), ("active", p["hover"], None), ("", None, None)], border=pad)
         for name, el in (("TButton", "A.btn"), ("Accent.TButton", "A.accent"), ("Ghost.TButton", "A.ghost")):
             style.layout(name, [(el, {"sticky": "nsew", "children": [
                 ("Button.padding", {"sticky": "nsew", "children": [("Button.label", {"sticky": "nsew"})]})]})])
         style.configure("TButton", padding=(px(14), px(5)), anchor="center", foreground=p["text"])
-        style.configure("Accent.TButton", foreground=p["on_accent"], font=bold)
-        style.map("Accent.TButton", foreground=[("disabled", p["bg"])])
+        style.configure("Accent.TButton", foreground=p["accent_text"], font=bold)
+        style.map("Accent.TButton", foreground=[("disabled", p["faint"]), ("active", p["text"])])
         style.configure("Ghost.TButton", padding=(px(6), px(2)), foreground=p["muted"], font=(FONT, 12))
         style.map("Ghost.TButton", foreground=[("active", p["text"])])
         style.layout("Key.TButton", style.layout("TButton"))  # male klawisze pod podgladem terminala
@@ -272,7 +282,8 @@ class Theme:
         self._element(style, "A.input", (px(48), px(48)), px(12), [
             ("focus", p["surface"], p["accent"]), ("", p["surface"], p["border"])], border=px(14))
         self._element(style, "A.banner", (px(48), px(48)), px(12), [("", p["accent_soft"], None)], border=px(14))
-        self._element(style, "A.pill", (px(48), px(40)), px(20), [("", p["surface"], p["border"])], border=px(20))
+        # pigulka podpowiedzi: niska (jedna linia malego tekstu) - ramka 9-slice nie moze byc wyzsza niz polowa wiersza
+        self._element(style, "A.pill", (px(32), px(24)), px(11), [("", p["surface"], p["trace"])], border=px(11))
         for name, el in (("Card.TFrame", "A.card"), ("Input.TFrame", "A.input"),
                          ("Banner.TFrame", "A.banner"), ("Pill.TFrame", "A.pill")):
             style.layout(name, [(el, {"sticky": "nsew"})])
@@ -292,7 +303,7 @@ class Theme:
         style.configure("Live.TLabel", background=p["accent_soft"], foreground=p["text"], font=(FONT, 10, "italic"))
         style.configure("State.TLabel", foreground=p["muted"], font=(FONT_BOLD, 10))
         style.configure("Chip.TLabel", background=p["surface"], foreground=p["muted"], font=(FONT, 9))
-        style.configure("Brand.TLabel", font=("Georgia", 15, "bold"), foreground=p["accent_text"])
+        style.configure("Brand.TLabel", font=(self.mono, 15, "bold"), foreground=p["accent_text"])
         style.configure("Card.TCheckbutton", background=p["surface"])
         style.configure("TFrame", background=p["bg"])
         style.configure("Plain.TFrame", background=p["surface"])

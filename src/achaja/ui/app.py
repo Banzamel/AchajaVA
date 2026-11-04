@@ -36,7 +36,7 @@ WINDOW_FILE = STATE / "app_window.json"
 ICON = ROOT / "setup" / "assets" / "achaja.ico"
 CONFIG = ROOT / "config.json"
 UPDATE_FIRST, UPDATE_EVERY = 20, 15 * 60  # sekundy: pierwsze sprawdzenie po starcie, potem co 15 minut
-ACCENT = "#a82a2f"
+ACCENT = "#16e584"
 
 TEXT = {
     "pl": {
@@ -75,8 +75,8 @@ TEXT = {
         "dialog_say": "Claude czeka na decyzję na ekranie, w zakładce Terminal.",
         "rec_failed": "Claude nie włączył nagrywania — zobacz zakładkę Terminal.",
         "term_empty": "Sesja Claude jeszcze nie działa.", "term_console": "Okno konsoli",
-        "hint_idle": "🎙  Powiedz „{}”, żeby zacząć mówić",
-        "hint_rec": "🎙  Wyślij: „{}”  ·  przerwij: „{}”  ·  od nowa: „{}”",
+        "hint_idle": "›  Powiedz „{}”, żeby zacząć mówić",
+        "hint_rec": "›  Wyślij: „{}”  ·  przerwij: „{}”  ·  od nowa: „{}”",
         "hint_dialog": "Claude czeka na wybór — odpowiedz w zakładce Terminal",
         "hint_paused": "Nasłuch wstrzymany — kliknij „Wznów nasłuch”", "hint_start": "Uruchamiam sesję Claude…",
     },
@@ -116,15 +116,15 @@ TEXT = {
         "dialog_say": "Claude is waiting for a choice on screen, in the Terminal tab.",
         "rec_failed": "Claude did not start recording — see the Terminal tab.",
         "term_empty": "The Claude session is not running yet.", "term_console": "Console window",
-        "hint_idle": "🎙  Say “{}” to start talking",
-        "hint_rec": "🎙  Send: “{}”  ·  cancel: “{}”  ·  start over: “{}”",
+        "hint_idle": "›  Say “{}” to start talking",
+        "hint_rec": "›  Send: “{}”  ·  cancel: “{}”  ·  start over: “{}”",
         "hint_dialog": "Claude is waiting for a choice — answer in the Terminal tab",
         "hint_paused": "Listening paused — click “Resume listening”", "hint_start": "Starting the Claude session…",
     },
 }
 # kolor stanu (klucz palety z theme.py) - awatar, opis stanu
-STATE_COLORS = {"idle": "green", "wake": "red", "rec": "red", "busy": "orange", "wait": "orange",
-                "dialog": "orange", "speak": "accent", "paused": "grey", "start": "grey", "closed": "grey",
+STATE_COLORS = {"idle": "green", "wake": "red", "rec": "red", "busy": "violet", "wait": "orange",
+                "dialog": "orange", "speak": "cyan", "paused": "grey", "start": "grey", "closed": "grey",
                 "error": "red"}
 # klawisze pod podgladem terminala - odpowiedzi w oknach wyboru Claude Code
 TERM_KEYS = (("↑", ["up"]), ("↓", ["down"]), ("Enter", ["enter"]), ("Esc", ["esc"]),
@@ -204,11 +204,13 @@ class Bubble:
         p, px, tk = app.theme.p, app.theme.px, app.tk
         self.app, self.mine = app, mine
         self.copy_text = "\n\n".join(x for x in (body, voice) if x)
-        fill = p["accent"] if mine else p["surface"]
+        # moje dymki: ciemne z cienka neonowa ramka (czytelne, bez plamy zieleni); Achai - jak karty
+        fill = p["mine"] if mine else p["surface"]
         self.c = c = tk.Canvas(app.chat, highlightthickness=0, borderwidth=0, background=p["bg"])
-        self.shape = c.create_polygon(0, 0, 0, 0, smooth=True, fill=fill, outline="")
+        self.shape = c.create_polygon(0, 0, 0, 0, smooth=True, fill=fill,
+                                      outline=p["mine_line"] if mine else p["border"], width=1)
         self.parts = []  # (pole tekstowe, okno na plotnie, czcionka, tekst)
-        for text, font, color in ((body, (FONT, 10), p["on_accent"] if mine else p["text"]),
+        for text, font, color in ((body, (FONT, 10), p["text"]),
                                   ("♪  " + voice if voice else "", (FONT, 10, "italic"), p["accent_text"])):
             if not text:
                 continue
@@ -472,8 +474,8 @@ class App:
         # awatar + imie + stan (slucha / nagrywa / mysli / mowi) - czytelne z daleka
         self.head = head = ttk.Frame(self.root, padding=(px(12), px(10), px(8), px(4)))
         head.pack(fill="x")
-        # haftowany pas pod naglowkiem - fala swiatla, gdy Achaja slucha, mysli albo mowi
-        self.band = ornament.Band(self.root, px(18))
+        # pas sciezek procesora pod naglowkiem - pakiety danych biegna, gdy Achaja slucha, mysli albo mowi
+        self.band = ornament.Band(self.root, px(28))
         self.band.c.pack(fill="x", padx=px(12), pady=(0, px(6)))
         self.avatar = avatar.Avatar(head, px(72))
         self.avatar.widget.pack(side="left")
@@ -492,14 +494,14 @@ class App:
         self.live_shown = None
         self.bar = bar = ttk.Frame(self.root, padding=(px(12), px(2), px(12), px(4)))
         bar.pack(fill="x")
-        self.talk_btn = ttk.Button(bar, text="🎤  " + t["talk"], style="Accent.TButton", command=self.talk)
+        self.talk_btn = ttk.Button(bar, text="◉  " + t["talk"], style="Accent.TButton", command=self.talk)
         self.talk_btn.pack(side="left", fill="x", expand=True)
         self.cancel_btn = ttk.Button(bar, text=t["cancel"], command=lambda: self.request("cancel"))
         self.pause_btn = ttk.Button(bar, text=t["pause"], command=self.toggle_pause)
         self.pause_btn.pack(side="left", padx=(px(6), 0))
         # podpowiedz (nieklikalna): jakie slowa dzialaja teraz - "Achaja" przy czuwaniu, "wykonaj"... przy nagrywaniu
-        chip = ttk.Frame(self.root, style="Pill.TFrame", padding=(px(12), px(3)))
-        chip.pack(anchor="w", padx=px(12), pady=(0, px(4)))
+        chip = ttk.Frame(self.root, style="Pill.TFrame", padding=(px(12), px(3), px(12), px(4)))
+        chip.pack(anchor="w", padx=px(12), pady=(px(2), px(10)))
         self.hint = ttk.Label(chip, style="Chip.TLabel")
         self.hint.pack()
         # pasek aktualizacji - pokazuje sie, gdy jest nowa wersja
@@ -1215,7 +1217,7 @@ class App:
             if not self.cancel_btn.winfo_ismapped():
                 self.cancel_btn.pack(side="left", padx=(self.theme.px(6), 0), after=self.talk_btn)
         else:
-            self.talk_btn.configure(text="🎤  " + self.t["talk"])
+            self.talk_btn.configure(text="◉  " + self.t["talk"])
             if self.cancel_btn.winfo_ismapped():
                 self.cancel_btn.pack_forget()
 
