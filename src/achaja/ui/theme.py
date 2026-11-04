@@ -147,6 +147,24 @@ class Theme:
         self.images.setdefault(self.mode, []).append(photo)
         return photo
 
+    def _separator(self):
+        """Tlo obszaru zakladek: u gory linia w kolorze akcentu z poswiata, wygaszana na koncach."""
+        from PIL import Image, ImageTk
+        p, px = self.p, self.px
+        w, h, fade = px(160), px(12), px(60)
+        img = Image.new("RGB", (w, h), tuple(int(p["bg"][i:i + 2], 16) for i in (1, 3, 5)))
+        line, glow = blend(p["trace"], p["accent"], 0.8), blend(p["bg"], p["trace"], 0.8)
+        thick = max(1, round(self.scale))
+        for x in range(w):
+            k = min(1.0, x / fade, (w - 1 - x) / fade)  # 0 na koncach, 1 w srodku
+            for y, col in ((range(thick), line), (range(thick, thick * 2), glow)):
+                c = blend(p["bg"], col, k)
+                for yy in y:
+                    img.putpixel((x, yy), tuple(int(c[i:i + 2], 16) for i in (1, 3, 5)))
+        photo = ImageTk.PhotoImage(img, master=self.root)
+        self.images.setdefault(self.mode, []).append(photo)
+        return photo
+
     def _element(self, style, name, size, radius, states, border=None, inset=(0, 0), sticky="nsew", padding=0):
         """states: lista (stan ttk albo "" dla domyslnego, kolor wypelnienia, kolor obramowania[, znaczek])."""
         w, h = size
@@ -247,7 +265,11 @@ class Theme:
         style.configure("TNotebook", background=p["bg"], borderwidth=0, tabmargins=(px(10), px(2), px(10), px(8)))
         style.configure("TNotebook.Tab", padding=(px(10), px(5)), foreground=p["muted"], font=bold)
         style.map("TNotebook.Tab", foreground=[("selected", p["accent_text"]), ("active", p["text"])])
-        style.layout("TNotebook", [("Notebook.client", {"sticky": "nsew"})])
+        # pod zakladkami neonowa linia jak sciezka procesora (wygaszana ku koncom) - oddziela menu od tresci
+        style.element_create("A.client", "image", self._separator(), border=(px(60), px(4), px(60), 0),
+                             padding=(0, px(8), 0, 0), sticky="nsew")
+        style.layout("TNotebook", [("A.client", {"sticky": "nsew", "children": [
+            ("Notebook.client", {"sticky": "nsew"})]})])
         style.configure("TNotebook", bordercolor=p["bg"], lightcolor=p["bg"], darkcolor=p["bg"])
         # kroki ustawien jako klikalne "pigulki" (stan selected = biezacy krok)
         style.layout("Chip.TButton", [("A.tab", {"sticky": "nsew", "children": [
@@ -283,7 +305,9 @@ class Theme:
             ("focus", p["surface"], p["accent"]), ("", p["surface"], p["border"])], border=px(14))
         self._element(style, "A.banner", (px(48), px(48)), px(12), [("", p["accent_soft"], None)], border=px(14))
         # pigulka podpowiedzi: niska (jedna linia malego tekstu) - ramka 9-slice nie moze byc wyzsza niz polowa wiersza
-        self._element(style, "A.pill", (px(32), px(24)), px(11), [("", p["surface"], p["trace"])], border=px(11))
+        # "polprzezroczysta" informacja: tlo i ramka w polowie drogi do tla okna (Tk nie ma alfy dla widzetow)
+        self._element(style, "A.pill", (px(32), px(24)), px(11),
+                      [("", blend(p["surface"], p["bg"], 0.5), blend(p["trace"], p["bg"], 0.45))], border=px(11))
         for name, el in (("Card.TFrame", "A.card"), ("Input.TFrame", "A.input"),
                          ("Banner.TFrame", "A.banner"), ("Pill.TFrame", "A.pill")):
             style.layout(name, [(el, {"sticky": "nsew"})])
@@ -302,7 +326,8 @@ class Theme:
         style.configure("Banner.TLabel", background=p["accent_soft"], foreground=p["accent_text"], font=bold)
         style.configure("Live.TLabel", background=p["accent_soft"], foreground=p["text"], font=(FONT, 10, "italic"))
         style.configure("State.TLabel", foreground=p["muted"], font=(FONT_BOLD, 10))
-        style.configure("Chip.TLabel", background=p["surface"], foreground=p["muted"], font=(FONT, 9))
+        style.configure("Chip.TLabel", background=blend(p["surface"], p["bg"], 0.5),
+                        foreground=blend(p["muted"], p["bg"], 0.25), font=(FONT, 9, "italic"))
         style.configure("Brand.TLabel", font=(self.mono, 15, "bold"), foreground=p["accent_text"])
         style.configure("Card.TCheckbutton", background=p["surface"])
         style.configure("TFrame", background=p["bg"])

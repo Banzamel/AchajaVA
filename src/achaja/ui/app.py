@@ -501,7 +501,7 @@ class App:
         self.pause_btn.pack(side="left", padx=(px(6), 0))
         # podpowiedz (nieklikalna): jakie slowa dzialaja teraz - "Achaja" przy czuwaniu, "wykonaj"... przy nagrywaniu
         chip = ttk.Frame(self.root, style="Pill.TFrame", padding=(px(12), px(3), px(12), px(4)))
-        chip.pack(anchor="w", padx=px(12), pady=(px(2), px(10)))
+        chip.pack(anchor="center", padx=px(12), pady=(px(2), px(10)))
         self.hint = ttk.Label(chip, style="Chip.TLabel")
         self.hint.pack()
         # pasek aktualizacji - pokazuje sie, gdy jest nowa wersja
