@@ -30,6 +30,8 @@ function Publish($version) {
         gh release edit $tag --title $title --notes-file $notes
     } else {
         gh release create $tag --title $title --notes-file $notes
+        # wyscig: wydanie moglo powstac miedzy "view" a "create" (np. rownolegly workflow Release notes)
+        if ($LASTEXITCODE -ne 0) { gh release edit $tag --title $title --notes-file $notes }
     }
     if ($LASTEXITCODE -ne 0) { throw "Nie udało się zapisać wydania $tag." }
     Write-Host "Wydanie ${tag}: $title"
