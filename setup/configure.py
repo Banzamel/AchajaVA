@@ -18,11 +18,10 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / ".claude" / "scripts"))
-import common  # noqa: E402  (tworzy state/, ustawia UTF-8)
-import mail  # noqa: E402
-import ornament  # noqa: E402
-import theme  # noqa: E402
+sys.path.insert(0, str(ROOT / "src"))
+from achaja.core import common  # noqa: E402  (tworzy state/, ustawia UTF-8)
+from achaja.mail import mail  # noqa: E402
+from achaja.ui import ornament, theme  # noqa: E402
 
 CONFIG = ROOT / "config.json"
 EXAMPLE = ROOT / "config.example.json"

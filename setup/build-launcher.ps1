@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 if (-not $Out) { $Out = Join-Path $root "Achaja.exe" }
 if (-not $Version) {
-    $Version = [regex]::Match((Get-Content (Join-Path $root ".claude\scripts\common.py") -Raw), '__version__ = "([^"]+)"').Groups[1].Value
+    $Version = [regex]::Match((Get-Content (Join-Path $root "src\achaja\core\common.py") -Raw), '__version__ = "([^"]+)"').Groups[1].Value
 }
 $numeric = [regex]::Match($Version, '^\d+(\.\d+){0,3}').Value   # "0.5.0-dev" -> "0.5.0"
 if (-not $numeric) { $numeric = "0.0.0" }

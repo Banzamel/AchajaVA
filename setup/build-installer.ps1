@@ -31,7 +31,7 @@ foreach ($f in $files) {
 Write-Host "Pliki projektu: $((Get-ChildItem $app -Recurse -File).Count)"
 
 # Wersja w kopii programu (aktualizacje porównują ją z wydaniami na GitHubie) i Achaja.exe
-$common = Join-Path $app ".claude\scripts\common.py"
+$common = Join-Path $app "src\achaja\core\common.py"
 $text = (Get-Content $common -Raw -Encoding UTF8) -replace '__version__ = "[^"]*"', ('__version__ = "{0}"' -f $Version)
 [IO.File]::WriteAllText($common, $text, (New-Object Text.UTF8Encoding $false))
 & (Join-Path $PSScriptRoot "build-launcher.ps1") -Out (Join-Path $app "Achaja.exe") -Version $Version

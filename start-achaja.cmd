@@ -4,5 +4,6 @@ rem   start-achaja.cmd             nowa rozmowa
 rem   start-achaja.cmd --continue  wznow ostatnia rozmowe
 title Achaja - nasluch
 cd /d "%~dp0"
-".venv\Scripts\python.exe" ".claude\scripts\listener.py" %*
+set "PYTHONPATH=%~dp0src"
+".venv\Scripts\python.exe" -m achaja.voice.listener %*
 pause

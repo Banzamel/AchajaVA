@@ -29,24 +29,28 @@ static class Launcher
     {
         string root = AppDomain.CurrentDomain.BaseDirectory;
         string pythonw = Path.Combine(root, @".venv\Scripts\pythonw.exe");
-        string script = Path.Combine(root, @".claude\scripts\app.py");
+        // okno Achai to pakiet src\achaja (python -m achaja.ui.app); kreator ustawien - skrypt setup\configure.py
+        string[] target = { "-m", "achaja.ui.app" };
+        string check = Path.Combine(root, @"src\achaja\ui\app.py");
         if (args.Length > 0 && args[0] == "--settings")
         {
-            script = Path.Combine(root, @"setup\configure.py");
+            check = Path.Combine(root, @"setup\configure.py");
+            target = new[] { check };
             args = args.Skip(1).ToArray();
         }
-        if (!File.Exists(pythonw) || !File.Exists(script))
+        if (!File.Exists(pythonw) || !File.Exists(check))
         {
             MessageBox.Show("Nie znaleziono środowiska Achai (.venv). Uruchom instalator ponownie.\n\n" +
                             "Achaja's environment (.venv) was not found. Run the installer again.",
                             "Achaja", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return 1;
         }
-        var info = new ProcessStartInfo(pythonw, string.Join(" ", new[] { Quote(script) }.Concat(args.Select(Quote))))
+        var info = new ProcessStartInfo(pythonw, string.Join(" ", target.Concat(args).Select(Quote)))
         {
             WorkingDirectory = root,
             UseShellExecute = false,
         };
+        info.EnvironmentVariables["PYTHONPATH"] = Path.Combine(root, "src");  // tez bez achaja.pth w .venv
         using (var proc = Process.Start(info))
         {
             proc.WaitForExit();

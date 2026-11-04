@@ -75,7 +75,7 @@ Keystrokes are written straight into the Claude Code console input buffer (`Writ
 
 ### The Achaja window
 
-Achaja starts as a normal Windows program — **`Achaja.exe`** (it runs `app.py` from the bundled environment; no console windows). `Achaja.exe --settings` opens the settings wizard.
+Achaja starts as a normal Windows program — **`Achaja.exe`** (it runs `python -m achaja.ui.app` from the bundled environment; no console windows). `Achaja.exe --settings` opens the settings wizard.
 
 - **Conversation** — chat bubbles with your prompts and Achaja's answers (the spoken `[GŁOS]` part marked ♪; right-click a bubble to copy it), filled by the session hooks; type into the box and press Enter to send a message without speaking.
 - **Agents** — every project agent with live progress and its final report, plus *Stop agent*. Agent runs no longer open their own console windows.
@@ -137,8 +137,8 @@ The script creates `.venv`, installs the dependencies, downloads the speech mode
 Then:
 
 1. Change settings any time: Start menu → *Achaja – settings*, or `.venv\Scripts\python.exe setup\configure.py` (or edit `config.json` directly).
-2. List audio device names: `.venv\Scripts\python.exe .claude\scripts\listener.py --devices`.
-3. Start `Achaja.exe` (built by `install.ps1`; or `.venv\Scripts\pythonw.exe .claude\scripts\app.py`; add `--continue` to resume the last conversation). One window opens; the Claude Code session runs hidden. `start-achaja.cmd` is the console mode with two visible windows.
+2. List audio device names: `.venv\Scripts\python.exe -m achaja listener --devices`.
+3. Start `Achaja.exe` (built by `install.ps1`; or `.venv\Scripts\pythonw.exe -m achaja.ui.app`; add `--continue` to resume the last conversation). One window opens; the Claude Code session runs hidden. `start-achaja.cmd` is the console mode with two visible windows.
 
 ### Language
 
@@ -181,7 +181,7 @@ Example commands:
 ## Project agents
 
 ```
-Achaja ──► agent.py run <project> ──► claude -p  (cwd = the project folder)
+Achaja ──► achaja agent run <project> ──► claude -p  (cwd = the project folder)
                                         │  its own .claude/CLAUDE.md, skills, permissions
                                         ├─ an "Agent: <project>" window with live progress
                                         └─ report → Achaja summarizes it aloud
@@ -199,12 +199,12 @@ Achaja ──► agent.py run <project> ──► claude -p  (cwd = the project 
 3. Copy `.mcp.example.json` → `.mcp.json` and set your HA address. The token reaches the session as `${HA_TOKEN}` and is never stored in a config file.
 4. In HA expose the devices Achaja may control (Settings → Voice assistants → Expose).
 
-The MCP integration cannot change an air conditioner's **HVAC mode** (heat, cool, auto, dry, fan only) — after `HassTurnOn` the device picks the mode itself. For that and other services MCP lacks, Achaja uses `.claude/scripts/ha.py` (Home Assistant REST API, standard library only; address from `config.json` → `home_assistant.url`, token from `state/ha_token.txt`, never printed):
+The MCP integration cannot change an air conditioner's **HVAC mode** (heat, cool, auto, dry, fan only) — after `HassTurnOn` the device picks the mode itself. For that and other services MCP lacks, Achaja uses `python -m achaja ha` (`src/achaja/home/ha.py`) (Home Assistant REST API, standard library only; address from `config.json` → `home_assistant.url`, token from `state/ha_token.txt`, never printed):
 
 ```
-.venv\Scripts\python.exe .claude\scripts\ha.py climate "living room" --mode heat --temp 23   # sets, then re-reads and compares
-.venv\Scripts\python.exe .claude\scripts\ha.py state climate.living_room                      # state and attributes (hvac_modes...)
-.venv\Scripts\python.exe .claude\scripts\ha.py call light turn_on '{"entity_id": "light.desk"}'
+.venv\Scripts\python.exe -m achaja ha climate "living room" --mode heat --temp 23   # sets, then re-reads and compares
+.venv\Scripts\python.exe -m achaja ha state climate.living_room                      # state and attributes (hvac_modes...)
+.venv\Scripts\python.exe -m achaja ha call light turn_on '{"entity_id": "light.desk"}'
 ```
 
 Modes the device does not support are refused with the list of supported ones; `--dry-run` only prints the requests. Locks, alarms, gates and garages are refused without `--confirmed` — Achaja asks you aloud first.
@@ -214,7 +214,7 @@ Modes the device does not support are refused with the list of supported ones; `
 ## Mail (optional)
 
 ```
-IMAP server ──IDLE──► mail_watch.py (background, one connection per account)
+IMAP server ──IDLE──► achaja.mail.watch (background, one connection per account)
                         ├─ rules: server spam/virus headers, executable or macro attachments,
                         │         Windows Defender scan, important / ignored senders
                         ├─ the rest: claude -p --model haiku with NO tools → important | normal | ad | spam | threat
@@ -224,40 +224,60 @@ IMAP server ──IDLE──► mail_watch.py (background, one connection per ac
 ```
 
 1. Add the accounts in the settings window (or in `mail.accounts` in `config.json` — an array: host, port, `security` ssl/starttls, user, password; any shared setting can be overridden per account) and turn mail on.
-2. Check the connection: `.venv\Scripts\python.exe .claude\scripts\mail.py test`.
-3. Start Achaja (the watcher starts with it) or run `mail.py start`.
+2. Check the connection: `.venv\Scripts\python.exe -m achaja mail test`.
+3. Start Achaja (the watcher starts with it) or run `achaja mail start`.
 
-Mail is never marked as read. The first start reviews existing mail (all unread plus the last `scan_existing_days` days) and reports once at the end; `mail.py rescan` repeats it on demand. Everything happens on the server: moved mail is purged `delete_after_days` (7 by default) after the move, "that wasn't spam" brings it back (`mail.py move <n> inbox`), and locally only metadata from the last `log_days` days is kept. Replies (`mail.py reply <n> --text-file F`, or `--draft`) go out over SMTP, get a copy in Sent and mark the original as answered; Achaja reads the draft aloud and sends it only after your yes. E-mail content only ever reaches a model with no tools and comes back as a category, so instructions hidden in an e-mail cannot trigger actions. For viruses the best first line of defence is the mail server itself (e.g. Rspamd + ClamAV) — Achaja trusts its `X-Spam-*` / `X-Virus-*` headers.
+Mail is never marked as read. The first start reviews existing mail (all unread plus the last `scan_existing_days` days) and reports once at the end; `achaja mail rescan` repeats it on demand. Everything happens on the server: moved mail is purged `delete_after_days` (7 by default) after the move, "that wasn't spam" brings it back (`achaja mail move <n> inbox`), and locally only metadata from the last `log_days` days is kept. Replies (`achaja mail reply <n> --text-file F`, or `--draft`) go out over SMTP, get a copy in Sent and mark the original as answered; Achaja reads the draft aloud and sends it only after your yes. E-mail content only ever reaches a model with no tools and comes back as a category, so instructions hidden in an e-mail cannot trigger actions. For viruses the best first line of defence is the mail server itself (e.g. Rspamd + ClamAV) — Achaja trusts its `X-Spam-*` / `X-Virus-*` headers.
 
 ## Reminders, scheduled tasks and background jobs
 
 ```
-.venv\Scripts\python.exe .claude\scripts\plan.py add --say "Call mum." --at 15:00
-.venv\Scripts\python.exe .claude\scripts\plan.py add --prompt "what's new in my mail" --weekdays 08:00
-.venv\Scripts\python.exe .claude\scripts\plan.py list
-.venv\Scripts\python.exe .claude\scripts\plan.py remove 3
+.venv\Scripts\python.exe -m achaja plan add --say "Call mum." --at 15:00
+.venv\Scripts\python.exe -m achaja plan add --prompt "what's new in my mail" --weekdays 08:00
+.venv\Scripts\python.exe -m achaja plan list
+.venv\Scripts\python.exe -m achaja plan remove 3
 ```
 
 Achaja does this for you when you ask by voice. When: `--in 30m`, `--at 15:30` or `--at "2026-11-20 09:00"`, `--daily 08:00`, `--weekdays 08:00`, `--weekly "fri 16:00"`. A `--say` reminder is spoken on time (after you finish recording); a `--prompt` task reaches Achaja as a message marked `[ZAPLANOWANE]` when she is idle — it can delegate to agents or check the mail, but it never counts as your approval for gated actions. The listener in the Achaja window runs the schedule (`state/plan.json`).
 
-**Background jobs** run on their own, in a separate headless Claude session in Achaja's folder (`jobs.py`), with Achaja's rules, mail and Home Assistant:
+**Background jobs** run on their own, in a separate headless Claude session in Achaja's folder (`achaja.plan.jobs`), with Achaja's rules, mail and Home Assistant:
 
 ```
-.venv\Scripts\python.exe .claude\scripts\plan.py add --job "go through new mail and answer clients" --name "Morning mail" ^
+.venv\Scripts\python.exe -m achaja plan add --job "go through new mail and answer clients" --name "Morning mail" ^
     --rules "only answer questions about appointment dates, in a friendly tone; never promise prices" --weekdays 08:00
-.venv\Scripts\python.exe .claude\scripts\plan.py run 4        # run it now
-.venv\Scripts\python.exe .claude\scripts\jobs.py last 4       # its last report
+.venv\Scripts\python.exe -m achaja plan run 4        # run it now
+.venv\Scripts\python.exe -m achaja jobs last 4       # its last report
 ```
 
 `--rules` are the standing rules you agreed with Achaja. By default a job only prepares drafts and tells you what is waiting for your yes; `--allow mail` (also `mcp`, `delete`, `push`, `deploy`, `home`) lets it act on its own in that category — adding it needs your spoken *yes*, and the gate lets a job do nothing outside it. The report lands in the chat and the **Plan** tab; Achaja speaks its summary when you are not recording, or stays silent when nothing matters. A job running longer than `jobs.timeout_minutes` (30) is stopped.
 
 ## Claude account, usage and sessions
 
-The **Claude** tab shows the signed-in account (e-mail, plan), usage bars for each plan window with the time it resets (the same reading as `/usage`, from `api.anthropic.com/api/oauth/usage` with Claude Code's own token — never printed or stored), and every Claude Code session on the PC grouped by project with its size, last activity and whether it is active. *Delete* removes a session or all sessions of a project, *Clean older than 30 days* tidies old sessions, debug logs and shell snapshots — only Claude Code's records in `~/.claude`, never project files, and never an active session or Achaja's current conversation. By voice: *“how much of my limit is left?”*, *“how much space do Claude sessions take?”* (`claude_data.py summary | usage | projects | sessions <project> | clean --days 30`).
+The **Claude** tab shows the signed-in account (e-mail, plan), usage bars for each plan window with the time it resets (the same reading as `/usage`, from `api.anthropic.com/api/oauth/usage` with Claude Code's own token — never printed or stored), and every Claude Code session on the PC grouped by project with its size, last activity and whether it is active. *Delete* removes a session or all sessions of a project, *Clean older than 30 days* tidies old sessions, debug logs and shell snapshots — only Claude Code's records in `~/.claude`, never project files, and never an active session or Achaja's current conversation. By voice: *“how much of my limit is left?”*, *“how much space do Claude sessions take?”* (`achaja claude summary | usage | projects | sessions <project> | clean --days 30`).
 
 ## Backups
 
-Once a day (`backup.every_hours`) Achaja zips `config.json`, `.mcp.json`, local settings and `state/` into `Documents\Achaja - kopie` (`backup.folder`), keeping the newest 10. *Achaja → Back up now* or *“make a backup”* does it on demand; `backup.py restore <file>` brings one back (after your yes, saving the current state first). Backups contain mail passwords and tokens — keep them private.
+Once a day (`backup.every_hours`) Achaja zips `config.json`, `.mcp.json`, local settings and `state/` into `Documents\Achaja - kopie` (`backup.folder`), keeping the newest 10. *Achaja → Back up now* or *“make a backup”* does it on demand; `achaja backup restore <file>` brings one back (after your yes, saving the current state first). Backups contain mail passwords and tokens — keep them private.
+
+## Project layout
+
+```
+.claude/        what Claude Code reads: CLAUDE.md (Achaja's rules), skills/, settings.json (hooks, from setup/settings.json)
+src/achaja/     Achaja's code - a Python package, one entry point: python -m achaja <command>
+  core/         paths and config, updates, backups, keystrokes and screen of the Claude console
+  voice/        wake-word listener, speech, audio outputs
+  ui/           the window and its tabs, look
+  hooks/        Claude Code hooks: voice, confirmation gate, locks-and-gates guard
+  agents/       project agents
+  mail/         mail triage in the background, reading and replies
+  home/         Home Assistant over REST
+  plan/         reminders, scheduled commands, background jobs
+  claude/       Claude account, plan usage, sessions on this PC
+setup/          installer, launcher (Achaja.exe), settings wizard, release scripts
+state/          working data: tokens, logs, sessions (git-ignored, never published)
+```
+
+`install.ps1` puts `src` on the virtual environment's path (`achaja.pth`), so `python -m achaja …` works from any folder; `python -m achaja` alone lists the commands.
 
 ## Configuration
 
@@ -277,10 +297,10 @@ Everything lives in `config.json` (created from `config.example.json`): micropho
 Achaja runs on your PC and controls it by voice, so the rules are strict and enforced in code where possible, not only in the assistant's instructions.
 
 - **Local listening.** The wake-word model runs offline (Vosk). Only your dictated request goes to Claude Code's dictation, and the spoken text to edge-tts.
-- **Your yes, out loud — enforced by a gate.** Irreversible or outward-facing actions (git push, deleting files, sending mail, deploys, shutting down, locks and gates, installing an update, MCP tools that send or delete) are stopped by a hook (`hook_gate.py`) unless the turn started with your own *yes*. The approval lasts one turn; text from a mail, a page, an agent's report or a scheduled task can't give it.
+- **Your yes, out loud — enforced by a gate.** Irreversible or outward-facing actions (git push, deleting files, sending mail, deploys, shutting down, locks and gates, installing an update, MCP tools that send or delete) are stopped by a hook (`src/achaja/hooks/gate.py`) unless the turn started with your own *yes*. The approval lasts one turn; text from a mail, a page, an agent's report or a scheduled task can't give it.
 - **Background jobs get only the permissions you gave them.** A scheduled job can't ask you, so the gate lets it act only in the categories you allowed when creating it (`--allow`); everything else becomes a draft in its report.
 - **Agents stay in their lane.** Project agents can't read or change Achaja's tokens, logs, settings or `config.json`, and an agent with no progress for 45 minutes is stopped.
-- **Locks, gates, garages, alarms.** `ha.py` refuses them without `--confirmed` — including commands aimed at a whole area, floor, device, label or script that would reach one. A hook (`hook_ha.py`) applies the same check to the Home Assistant MCP tools, and when it can't tell what a command covers, it asks.
+- **Locks, gates, garages, alarms.** `achaja ha` refuses them without `--confirmed` — including commands aimed at a whole area, floor, device, label or script that would reach one. A hook (`hooks/home_guard.py`) applies the same check to the Home Assistant MCP tools, and when it can't tell what a command covers, it asks.
 - **Mail is data, never instructions.** E-mails are classified by a model with no tools; every field written by the sender (body, subject, sender name, attachment names) is neutralised, hidden Unicode characters included, before it reaches that model, mail read out in a conversation is wrapped in a random tag the sender can't guess, and the spoken report never says the wake word.
 - **Secrets stay local.** `config.json`, `.mcp.json`, `state/` (tokens, logs, transcripts) and `.claude/settings*.json` are git-ignored; the Home Assistant token is never printed.
 - **Only its own window.** The listener writes keystrokes only into the console of the Claude Code session it manages.
@@ -344,7 +364,7 @@ powershell -ExecutionPolicy Bypass -File setup\release.ps1 -Version 0.5.0 -DryRu
 powershell -ExecutionPolicy Bypass -File setup\release.ps1 -Version 0.5.0
 ```
 
-First write the release notes in `.github/releases/0.5.0.md` — the first line is the title (`# Achaja 0.5.0 — short subtitle`), the rest is the description, in the same style as the earlier files there. The script bumps `__version__`, commits the version and the notes as "Wersja 0.5.0", tags `v0.5.0` and pushes both. The tag starts the *Installer* workflow in GitHub Actions, which builds `Achaja.exe` and `AchajaSetup-0.5.0.exe` and attaches the installer to a new release titled and described from that file; installed copies of Achaja find it on their next check. Editing a notes file later and pushing it to `main` updates the published release too (*Release notes* workflow). The same by hand: add the notes file, bump `__version__` in `.claude/scripts/common.py`, commit, then `git tag -a v0.5.0 -m "Achaja 0.5.0"` and `git push origin main v0.5.0`.
+First write the release notes in `.github/releases/0.5.0.md` — the first line is the title (`# Achaja 0.5.0 — short subtitle`), the rest is the description, in the same style as the earlier files there. The script bumps `__version__`, commits the version and the notes as "Wersja 0.5.0", tags `v0.5.0` and pushes both. The tag starts the *Installer* workflow in GitHub Actions, which builds `Achaja.exe` and `AchajaSetup-0.5.0.exe` and attaches the installer to a new release titled and described from that file; installed copies of Achaja find it on their next check. Editing a notes file later and pushing it to `main` updates the published release too (*Release notes* workflow). The same by hand: add the notes file, bump `__version__` in `src/achaja/core/common.py`, commit, then `git tag -a v0.5.0 -m "Achaja 0.5.0"` and `git push origin main v0.5.0`.
 
 ## Who made this
 

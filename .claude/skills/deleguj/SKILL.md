@@ -5,14 +5,14 @@ description: Zleca zadanie agentowi innego projektu (osobny proces claude w fold
 
 # Delegowanie zadania agentowi projektu
 
-Python: `& ".venv\Scripts\python.exe" ".claude\scripts\agent.py" ...`
+Python: `& ".venv\Scripts\python.exe" -m achaja agent ...`
 
 ## 1. Ustal projekt
 Jeśli nazwa jest niepewna (dyktowanie przekręca nazwy), sprawdź listę:
 ```powershell
-& ".venv\Scripts\python.exe" ".claude\scripts\agent.py" list
+& ".venv\Scripts\python.exe" -m achaja agent list
 ```
-`agent.py` sam dopasowuje nazwy rozmyte i aliasy z `config.json`. Gdy dwa projekty pasują równie dobrze — zapytaj głosowo.
+`achaja agent` sam dopasowuje nazwy rozmyte i aliasy z `config.json`. Gdy dwa projekty pasują równie dobrze — zapytaj głosowo.
 
 ## 2. Przygotuj zlecenie
 Przepisz dyktowane polecenie na **jasne, kompletne zlecenie** dla agenta (agent nie zna Twojej rozmowy z użytkownikiem): cel, kontekst z rozmowy, oczekiwany rezultat, ograniczenia. Zapisz je do pliku narzędziem Write, np. `state\agents\zlecenie-<projekt>.txt` — omija to problemy z cudzysłowami i polskimi znakami w wierszu poleceń.
@@ -20,7 +20,7 @@ Przepisz dyktowane polecenie na **jasne, kompletne zlecenie** dla agenta (agent 
 ## 3. Uruchom agenta W TLE
 Wywołaj narzędziem PowerShell z `run_in_background: true`:
 ```powershell
-& ".venv\Scripts\python.exe" ".claude\scripts\agent.py" run <projekt> --prompt-file "state\agents\zlecenie-<projekt>.txt"
+& ".venv\Scripts\python.exe" -m achaja agent run <projekt> --prompt-file "state\agents\zlecenie-<projekt>.txt"
 ```
 - Dodaj `--new`, gdy użytkownik chce zacząć z agentem od zera; bez tego agent kontynuuje poprzednią rozmowę w tym projekcie.
 - Postęp na żywo widać w zakładce „Agenci” okna Achai (w trybie konsolowym skrypt otwiera okno „Agent: <projekt>”), a na końcu skrypt wypisuje raport.
@@ -29,7 +29,7 @@ Wywołaj narzędziem PowerShell z `run_in_background: true`:
 Od razu odpowiedz krótko, np. `[GŁOS] Zleciłam agentowi projektu vision poprawę formularza. Dam znać, gdy skończy.`
 
 ## 4. Gdy zadanie w tle się zakończy
-Przeczytaj wynik (wyjście zadania albo `agent.py last <projekt>`) i zrelacjonuj:
+Przeczytaj wynik (wyjście zadania albo `achaja agent last <projekt>`) i zrelacjonuj:
 - tekst: pełne podsumowanie agenta, zmienione pliki, wyniki testów, zablokowane akcje, pytania;
 - `[GŁOS]`: czy się udało, najważniejszy efekt w 1–2 zdaniach, oraz pytania agenta do użytkownika.
 

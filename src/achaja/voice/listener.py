@@ -1,0 +1,731 @@
+"""Nasluch Achai: slowo-klucz -> dyktowanie w Claude (tryb voice tap) -> slowo koncowe -> wyslanie.
+
+Vosk rozpoznaje TYLKO slowa kluczowe (maly model, offline). Sam prompt
+rozpoznaje wbudowane dyktowanie Claude Code. Klawisze sa wstrzykiwane
+bezposrednio do konsoli Claude, wiec okno nie musi miec fokusu.
+
+Uzycie:
+  python -m achaja listener                 uruchamia nowa sesje Achai w nowym oknie i slucha
+  python -m achaja listener --continue      jw., ale wznawia ostatnia rozmowe Achai
+  python -m achaja listener --pid 1234      podpina sie pod juz dzialajace okno claude (PID claude.exe)
+  python -m achaja listener --devices       wypisuje mikrofony
+
+Aplikacja okienkowa (app.py) uruchamia ten sam nasluch w watku - run(args, ui) - z ukrytym
+oknem Claude; klawisze i odczyt ekranu robi wtedy w swoim procesie (console.py), bez startu Pythona.
+"""
+import argparse
+import difflib
+import json
+import os
+import queue
+import random
+import re
+import shutil
+import subprocess
+import time
+import winsound
+
+from achaja.plan import plan
+from achaja.voice.audio_out import request_stop
+from achaja.core.common import (CREATE_NEW_CONSOLE, CREATE_NO_WINDOW, DETACHED_PROCESS, PYTHON, PYTHONW, ROOT,
+                    STATE, clean_env, load_config, model_dir, pick_device, pid_alive, process_name, read_json,
+                    single_instance, write_json)
+
+IDLE, RECORDING = "czekam na 'Achaja'", "NAGRYWAM ('wykonaj' / 'anuluj' / 'nowa rozmowa')"
+
+
+LOG_SINKS = []  # aplikacja okienkowa dopisuje tu swoja funkcje (dziennik w oknie)
+INPROCESS = False  # True: proces bez wlasnej konsoli - klawisze i ekran przez console.py w tym procesie
+
+
+def log(msg):
+    line = f"{time.strftime('%H:%M:%S')} {msg}"
+    print(line, flush=True)  # pod pythonw stdout jest None - print nic nie robi
+    for sink in LOG_SINKS:
+        sink(line)
+
+
+def inject(pid, *keys):
+    if INPROCESS:
+        from achaja.core import console
+        try:
+            console.write_keys(pid, keys)
+            return True
+        except OSError as exc:
+            log(f"BLAD wstrzykiwania klawiszy: {exc}")
+            return False
+    result = subprocess.run([str(PYTHON), "-m", "achaja.core.inject", str(pid), *keys],
+                            creationflags=CREATE_NO_WINDOW, capture_output=True, text=True)
+    if result.returncode != 0:
+        log(f"BLAD wstrzykiwania klawiszy: {result.stderr.strip()[-300:]}")
+    return result.returncode == 0
+
+
+SEPARATOR = re.compile(r"^\s*─{8,}")
+SPINNER = re.compile(r"^\s*[^\w\s]\s+\w[^()]*…")  # "✻ Pondering… (12s · ↓ 1.2k tokens)"
+# napisy Claude Code, po ktorych rozpoznajemy stan konsoli. Gdy Claude Code zmieni interfejs, wystarczy
+# poprawic je w config.json (wake.screen_text) - bez nowej wersji Achai.
+#   recording: pasek nagrywania; dialog: okno wyboru (zgoda na narzedzie, nowy serwer MCP, zaufanie
+#   do folderu - spacja moglaby w nim cos wybrac); busy: Claude pracuje
+SCREEN_TEXT = {
+    "recording": ["● REC", "REC · "],
+    "dialog": ["Enter to confirm", "Esc to cancel", "Do you want to", "❯ 1.", "Do you trust"],
+    "busy": ["esc to interrupt"],
+}
+
+
+def screen_text(cfg):
+    words = dict(SCREEN_TEXT)
+    if cfg["wake"].get("recording_markers"):  # starsza nazwa ustawienia
+        words["recording"] = cfg["wake"]["recording_markers"]
+    words.update(cfg["wake"].get("screen_text") or {})
+    return words
+
+
+def claude_screen(pid):
+    """Widoczne linie konsoli Claude; None, gdy ekranu nie da sie odczytac."""
+    if INPROCESS:
+        from achaja.core import console
+        try:
+            return console.read_screen(pid)
+        except OSError:
+            return None
+    result = subprocess.run([str(PYTHON), "-m", "achaja.core.screen", str(pid)], creationflags=CREATE_NO_WINDOW,
+                            capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return result.stdout.splitlines() if result.returncode == 0 else None
+
+
+def parse_screen(lines, words):
+    """Co widac w konsoli Claude: rec (pasek "● REC · tap to send"), input (tekst w polu - takze
+    dyktowany na zywo), activity (linia "✻ Mysle… (12s · esc to interrupt)"), dialog (okno wyboru).
+    words: napisy z screen_text(cfg)."""
+    body = list(lines)
+    while body and not body[-1].strip():
+        body.pop()
+    nonempty = [line for line in body if line.strip()]  # pod paskiem bywa pusto
+    rec = any(m in line for line in nonempty[-6:] for m in words["recording"])
+    seps = [i for i, line in enumerate(body) if SEPARATOR.match(line)]
+    text = ""
+    if len(seps) >= 2 and seps[-1] - seps[-2] <= 12:  # pole wpisywania jest miedzy dwiema ostatnimi kreskami
+        text = " ".join(line.strip() for line in body[seps[-2] + 1:seps[-1]])
+        text = re.sub(r"^[>❯]\s?", "", text)
+        text = re.sub(r"[▀-▟\x00-\x1f]", "", text).strip()  # kursor, wskaznik glosnosci, znaki sterujace
+        if text.startswith('Try "'):  # podpowiedz pustego pola
+            text = ""
+    above = body[:seps[-2]] if len(seps) >= 2 else body
+    # tylko tuz nad polem - wyzej (w historii) zostaja stare linie
+    activity = next((line.strip() for line in reversed(above[-12:]) if SPINNER.match(line)), "")
+    for m in words["busy"]:
+        activity = re.sub(r"\s*·?\s*" + re.escape(m), "", activity)
+    activity = activity.replace("()", "").strip(" ·")
+    busy = bool(activity) or any(m in line for line in nonempty[-8:] for m in words["busy"])
+    dialog = not rec and any(h in line for line in nonempty[-16:] for h in words["dialog"])
+    return {"lines": body, "rec": rec, "input": text, "activity": activity, "busy": busy, "dialog": dialog}
+
+
+def claude_recording(pid, words):
+    """Czy Claude Code nagrywa - wg paska stanu ("● REC · tap to send").
+    None, gdy ekranu nie da sie odczytac (wtedy listener zgaduje jak dawniej)."""
+    lines = claude_screen(pid)
+    return None if lines is None else parse_screen(lines, words)["rec"]
+
+
+def wake_heard(result, phrases, min_conf, isolated):
+    """Fraza wybudzenia w zakonczonej wypowiedzi, jej slowa z pewnoscia >= min_conf.
+    isolated: wypowiedz to sama fraza (bez [unk] obok) - "haha to ja" sie nie liczy.
+    Warianty tej samej frazy ("aha ja", "a ha ja", "acha ja") dziela miedzy siebie pewnosc slow, ktorymi
+    sie roznia (np. "aha" dostaje 0.5) - dla tych slow prog dzielimy przez liczbe wariantow. Slowa wspolne
+    wszystkim wariantom ("ja") musza miec pelny prog."""
+    text = result.get("text", "")
+    words = result.get("result", [])
+    common = set.intersection(*(set(p.split()) for p in phrases)) if phrases else set()
+    for p in phrases:
+        if (text != p) if isolated else (f" {p} " not in f" {text} "):
+            continue
+        ok = [w.get("conf", 0) >= (min_conf if w.get("word") in common else min_conf / len(phrases))
+              for w in words if w.get("word") in p.split()]
+        if ok and all(ok):
+            return True
+    return False
+
+
+def say(text):
+    subprocess.Popen([str(PYTHONW), "-m", "achaja.voice.speak", text], cwd=str(ROOT),
+                     creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+
+
+def reply_to_wake(phrases, clips):
+    """Mowi "Slucham" i czeka do konca - nagrywanie startuje dopiero potem, wiec odpowiedz nie trafia do promptu.
+    Na wyjsciu lokalnym gra przycieta, gotowa probke z pamieci (bez startu speak.py i bez ciszy na koncu)."""
+    from achaja.voice.audio_out import current_output, outputs
+    outs, default = outputs()
+    out = outs.get(current_output()) or outs[default]
+    if clips and out.get("type") == "local":
+        import sounddevice as sd
+        data, rate = random.choice(clips)
+        try:
+            sd.play(data, rate, device=pick_device(sd, out.get("device"), "output"))
+            sd.wait()
+            return
+        except Exception as exc:
+            log(f"Nie udalo sie odtworzyc odpowiedzi: {exc}")
+    time.sleep(0.15)  # speak.py pomija mowe zamowiona przed ostatnim stop_speech()
+    try:
+        subprocess.run([str(PYTHONW), "-m", "achaja.voice.speak", random.choice(phrases)], cwd=str(ROOT),
+                       creationflags=CREATE_NO_WINDOW, timeout=15)
+    except subprocess.TimeoutExpired:
+        log("Odpowiedz na wybudzenie trwala za dlugo - nagrywam bez niej.")
+
+
+def load_wake_replies(cfg, phrases, clips):
+    """Przygotowuje w tle nagrania "Slucham" (przyciete z ciszy) - kazde wybudzenie odpowiada od razu."""
+    import threading
+
+    def work():
+        import numpy as np
+        import soundfile as sf
+        from achaja.voice.speak import synth_cached
+        for text in phrases:
+            out = STATE / f"wake-{os.getpid()}.mp3"
+            try:
+                synth_cached(text, cfg["voice"]["tts_voice"], cfg["voice"].get("rate", "+0%"), out)
+                data, rate = sf.read(str(out), dtype="float32")
+                loud = np.flatnonzero(np.abs(data) > 0.01)
+                if len(loud):
+                    data = data[max(0, loud[0] - int(0.03 * rate)):loud[-1] + int(0.1 * rate)]
+                clips.append((data, rate))
+            except Exception as exc:
+                log(f"Nie udalo sie przygotowac odpowiedzi '{text}': {exc}")
+            finally:
+                out.unlink(missing_ok=True)
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def stop_speech():
+    request_stop()  # speak.py sam zatrzymuje odtwarzanie (takze na glosniku Google Home)
+
+
+def speaking():
+    try:
+        return pid_alive(int((STATE / "tts.pid").read_text()))
+    except (OSError, ValueError):
+        return False
+
+
+def followup_ready(now):
+    """Achaja zadala pytanie (hook Stop) i wlasnie skonczyla je czytac."""
+    path = STATE / "followup.json"
+    asked = read_json(path, None)
+    if not asked:
+        return False
+    if now - asked["at"] > 300:
+        path.unlink(missing_ok=True)
+        return False
+    done = read_json(STATE / "speech_done.json", {}).get("at", 0)
+    if done > asked["at"] and not speaking():
+        path.unlink(missing_ok=True)
+        return True
+    return False
+
+
+def beep(cfg, freq, ms):
+    if cfg["wake"].get("beep", True):
+        winsound.Beep(freq, ms)
+
+
+def launch_achaja(resume, hidden=False):
+    """Okno Claude (sesja "Achaja"). hidden: konsola startuje ukryta - pokazuje ja aplikacja na zadanie."""
+    claude = shutil.which("claude")
+    if not claude:
+        raise SystemExit("Nie znaleziono 'claude' w PATH.")
+    cfg = load_config()
+    args = [claude, "--permission-mode", cfg["agents"].get("permission_mode", "auto"), "-n", "Achaja"]
+    if cfg.get("achaja", {}).get("model"):
+        args += ["--model", cfg["achaja"]["model"]]
+    if cfg.get("achaja", {}).get("effort"):
+        args += ["--effort", cfg["achaja"]["effort"]]
+    if resume:
+        args.append("--continue")
+    env = clean_env()
+    env["ACHAJA_SESSION"] = "1"  # hooki rozpoznaja po tym sesje Achai (tryb rozmowy tylko dla niej)
+    token_file = STATE / "ha_token.txt"
+    if token_file.exists():  # token Home Assistant dla .mcp.json (${HA_TOKEN}) - tylko w sesji Achai
+        env["HA_TOKEN"] = token_file.read_text(encoding="utf-8").strip()
+    startup = None
+    if hidden:
+        env["ACHAJA_APP"] = "1"  # agent.py nie otwiera wtedy okien podgladu - postep jest w aplikacji
+        startup = subprocess.STARTUPINFO()
+        startup.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startup.wShowWindow = 0  # SW_HIDE - bez mignięcia okna konsoli
+    proc = subprocess.Popen(args, cwd=str(ROOT), creationflags=CREATE_NEW_CONSOLE, env=env, startupinfo=startup)
+    log(f"Uruchomiono Achaje {'w tle' if hidden else 'w nowym oknie'} (PID {proc.pid}).")
+    return proc.pid
+
+
+def start_mail_watch(cfg):
+    """Nasluch poczty w tle (mail_watch.py sam pilnuje, zeby dzialala jedna kopia)."""
+    mail = cfg.get("mail") or {}
+    if mail.get("enabled") and mail.get("accounts"):
+        subprocess.Popen([str(PYTHONW), "-m", "achaja.mail.watch"], cwd=str(ROOT),
+                         creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+        log("Nasluch poczty dziala w tle (mail.py status).")
+
+
+def assign_claude_microphone(pid, mic):
+    """Przypisuje mikrofon do claude.exe (Windows wymaga aktywnego nagrywania, wiec robimy to
+    chwile po starcie pierwszego nagrania). Windows pamieta wybor na stale dla sciezki exe."""
+    import threading
+    flag = STATE / "claude_mic.json"
+    if not mic or read_json(flag, {}).get("mic") == mic:
+        return
+
+    def work():
+        time.sleep(1.5)
+        result = subprocess.run([str(PYTHON), str(ROOT / "setup" / "set_app_audio.py"), str(pid), "input", mic],
+                                creationflags=CREATE_NO_WINDOW, capture_output=True, text=True)
+        if result.returncode == 0:
+            write_json(flag, {"mic": mic})
+            log(f"Przypisano mikrofon '{mic}' do claude.exe (na stale).")
+        else:
+            log(f"Nie udalo sie przypisac mikrofonu do claude.exe: {result.stderr.strip()[-200:]}")
+
+    threading.Thread(target=work, daemon=True).start()
+
+
+def pick_microphone(sd, wanted):
+    device = pick_device(sd, wanted, "input")
+    if wanted and device is None:
+        log(f"Nie znaleziono mikrofonu '{wanted}' - uzywam domyslnego.")
+    return device
+
+
+def is_end_word(word, words, threshold):
+    """Maly model przekreca "wykonaj" (wykonanie, wykonane, wygodniej) - dopasowanie rozmyte."""
+    for w in words:
+        ratio = difflib.SequenceMatcher(None, word, w).ratio()
+        if ratio >= threshold or (word[:2] == w[:2] and ratio >= threshold - 0.1):
+            return True
+    return False
+
+
+def ends_with(text, words, threshold):
+    parts = text.split()
+    return bool(parts) and is_end_word(parts[-1], words, threshold)
+
+
+class Microphone:
+    """Strumien z mikrofonu, ktory da sie zwolnic i otworzyc ponownie. Dopoki jakis program trzyma mikrofon
+    sluchawek Bluetooth, Windows trzyma je w trybie zestawu glosnomowiacego - muzyka i gry graja cicho albo wcale."""
+
+    def __init__(self, sd, device, callback):
+        self.sd, self.device, self.callback = sd, device, callback
+        self.stream = None
+
+    @property
+    def is_open(self):
+        return self.stream is not None
+
+    def open(self):
+        if self.stream is None:
+            stream = self.sd.RawInputStream(samplerate=16000, blocksize=4000, dtype="int16", channels=1,
+                                            device=self.device, callback=self.callback)
+            stream.start()
+            self.stream = stream
+
+    def close(self):
+        if self.stream is not None:
+            stream, self.stream = self.stream, None
+            stream.stop()
+            stream.close()
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
+
+def parse_args(argv=None):
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--pid", type=int)
+    ap.add_argument("--continue", dest="resume", action="store_true")
+    ap.add_argument("--devices", action="store_true")
+    ap.add_argument("--device", help="nazwa lub numer mikrofonu (domyslnie systemowy)")
+    return ap.parse_args(argv)
+
+
+class Console:
+    """Nasluch bez aplikacji okienkowej: nic nie wstrzymuje, nic nie zamawia z zewnatrz."""
+    hidden = False
+    paused = False
+    heard = ""  # co slyszy Vosk w trakcie nagrywania (aplikacja pokazuje to na zywo)
+    problem = None  # "dialog" / "rec_failed" - aplikacja pokazuje wtedy zakladke Terminal
+
+    def __init__(self):
+        import threading
+        self.stop = threading.Event()
+        self.requests = queue.Queue()
+
+    def on_state(self, state, pid):
+        pass
+
+
+def main():
+    args = parse_args()
+    if args.devices:
+        import sounddevice as sd
+        print(sd.query_devices())
+        return
+    if not single_instance("AchajaListener"):
+        print("Achaja juz dziala (nasluch jest uruchomiony) - nie uruchamiam drugiej kopii.")
+        return
+    run(args, Console())
+
+
+def run(args, ui):
+    """Petla nasluchu. ui: stop (Event), paused, hidden, requests (Queue: record/cancel/send),
+    on_state(stan, pid). Zwraca, gdy okno Claude zostanie zamkniete albo ui.stop jest ustawione."""
+    global INPROCESS
+    import sounddevice as sd
+    import vosk
+
+    INPROCESS = not __import__("console").has_own_console()
+    cfg = load_config()
+    wake, end, cancel = cfg["wake"]["phrases"], cfg["wake"]["end"], cfg["wake"]["cancel"]
+    clear = cfg["wake"].get("clear", [])
+
+    vosk.SetLogLevel(-1)
+    model = vosk.Model(str(model_dir()))
+    # wybudzenie: gramatyka ograniczona (model nie zna slowa "achaja"), szybkie wyniki czastkowe
+    wake_rec = vosk.KaldiRecognizer(model, 16000, json.dumps(wake + ["[unk]"], ensure_ascii=False))
+    wake_rec.SetWords(True)  # pewnosc kazdego slowa - odrzuca "haha", "ja ha" itp.
+    # w trakcie nagrywania: pelny slownik i tylko zakonczone wypowiedzi - mniej falszywych trafien
+    free_rec = vosk.KaldiRecognizer(model, 16000)
+
+    (STATE / "followup.json").unlink(missing_ok=True)
+    pid = args.pid
+    previous = read_json(STATE / "listener.json", {}).get("claude_pid")
+    if not pid and previous and process_name(previous) == "claude.exe":
+        pid = previous
+        log(f"Okno Achai juz jest otwarte (PID {pid}) - podpinam sie do niego.")
+    if not pid:
+        pid = launch_achaja(args.resume, hidden=ui.hidden)
+    write_json(STATE / "listener.json", {"listener_pid": os.getpid(), "claude_pid": pid})
+    start_mail_watch(cfg)
+
+    audio = queue.Queue()
+    device = pick_microphone(sd, args.device or cfg["wake"].get("microphone"))
+
+    def on_audio(data, frames, t, status):
+        audio.put(bytes(data))
+
+    state, started, last_speech = IDLE, 0.0, 0.0
+    max_rec = cfg["wake"].get("max_recording_seconds", 110)
+    silence_stop = cfg["wake"].get("silence_stop_seconds", 17)
+    followup = cfg["wake"].get("auto_listen_after_question", True)
+    end_match = cfg["wake"].get("end_match", 0.7)
+    end_stable = cfg["wake"].get("end_stable_seconds", 0.6)
+    partial_text, partial_since = "", 0.0
+    remind_after = cfg["voice"].get("working_reminder_after_seconds", 30)
+    remind_every = cfg["voice"].get("working_reminder_every_seconds", 60)
+    remind_max = cfg["voice"].get("working_reminder_max_seconds", 900)
+    last_reminder = 0.0
+    last_plan = 0.0  # przypomnienia i zadania o czasie (plan.py)
+    last_backup = time.time() - 540  # pierwsze sprawdzenie kopii ok. minuty po starcie
+    wake_replies = cfg["voice"].get("wake_replies",
+                                    ["Słucham."] if cfg.get("language", "pl") == "pl" else ["Yes?"])
+    wake_clips = []
+    if wake_replies:
+        load_wake_replies(cfg, wake_replies, wake_clips)
+    wake_conf = cfg["wake"].get("wake_confidence", 0.8)
+    wake_isolated = cfg["wake"].get("wake_isolated", True)
+    # synchronizacja z ekranem Claude Code: spacja przelacza nagrywanie, wiec najpierw sprawdzamy, co jest
+    markers = screen_text(cfg)
+    screen_sync = cfg["wake"].get("screen_sync", True)
+    last_sync, last_inject, screen_ok = 0.0, 0.0, False
+
+    def recording_now():
+        nonlocal screen_ok
+        rec = claude_recording(pid, markers) if screen_sync else None
+        screen_ok = rec is not None
+        return rec
+
+    def screen_now():
+        lines = claude_screen(pid) if screen_sync else None
+        return parse_screen(lines, markers) if lines is not None else None
+
+    def wait_for_recording(timeout=2.5):
+        """Po spacji Claude potrzebuje chwili na pokazanie REC; nieczytelny ekran liczy sie jako sukces."""
+        until = time.time() + timeout
+        while time.time() < until:
+            time.sleep(0.25)
+            rec = claude_recording(pid, markers) if screen_sync else None
+            if rec is None or rec:
+                return True
+        return False
+
+    def press(*keys):
+        nonlocal last_inject
+        last_inject = time.time()
+        return inject(pid, *keys)
+
+    def start_recording(reason):
+        nonlocal state, started, last_speech, partial_text
+        free_rec.Reset()
+        # ctrl+u czysci pole (tap startuje nagrywanie tylko przy pustym polu)
+        partial_text = ui.heard = ""
+        screen = screen_now()
+        if screen and screen["rec"]:
+            # Claude juz nagrywa - spacja by je wylaczyla
+            beep(cfg, 880, 120)
+            state, started, last_speech = RECORDING, time.time(), time.time()
+            write_json(STATE / "recording.json", {"at": started})
+            log(f"{reason} Claude juz nagrywa - nie naciskam spacji. Stan: {state}")
+            return
+        if screen and screen["dialog"]:
+            # okno wyboru (np. "New MCP server found") - spacja nic by nie dala albo cos wybrala
+            beep(cfg, 330, 300)
+            ui.problem = "dialog"
+            log(f"{reason} Claude czeka na decyzje w oknie wyboru - nie nagrywam (zakladka Terminal).")
+            return
+        beep(cfg, 880, 120)
+        if press("ctrl+u", "space"):
+            if not wait_for_recording():
+                beep(cfg, 330, 300)
+                ui.problem = "rec_failed"
+                now_screen = screen_now()
+                lines = [line.strip() for line in now_screen["lines"] if line.strip()][-4:] if now_screen else []
+                log(f"{reason} Claude nie wlaczyl nagrywania. Na ekranie: {' | '.join(lines)[-300:]}")
+                return
+            state, started, last_speech = RECORDING, time.time(), time.time()
+            write_json(STATE / "recording.json", {"at": started})  # inne procesy (poczta) nie wchodza w slowo
+            log(f"{reason} Stan: {state}")
+            assign_claude_microphone(pid, cfg["wake"].get("microphone"))
+
+    def to_idle(msg):
+        nonlocal state
+        wake_rec.Reset()
+        state = IDLE
+        ui.heard = ""
+        (STATE / "recording.json").unlink(missing_ok=True)
+        log(f"{msg} Stan: {state}")
+
+    def send():
+        # nagrywa -> spacja wysyla; Claude juz przestal -> tekst czeka w polu, wysylamy enterem
+        press("enter" if recording_now() is False else "space")
+        beep(cfg, 1175, 120)
+        to_idle("Wyslano prompt.")
+
+    def cancel_recording():
+        if recording_now() is not False:  # esc poza nagrywaniem przerwalby prace Achai
+            press("esc")
+            time.sleep(0.4)
+        press("ctrl+u")
+        beep(cfg, 440, 300)
+        to_idle("Anulowano.")
+
+    def submit(text):
+        """Wpisuje tekst i wysyla. Claude Code czasem pomija pierwszy Enter po wpisanym tekscie (takze gdy
+        tekst juz stoi w polu), wiec sprawdzamy ekran i w razie potrzeby naciskamy Enter jeszcze raz."""
+        press("ctrl+u", "text:" + text)
+        # Enter dopiero, gdy tekst stoi w polu
+        until = time.time() + 2.0
+        while time.time() < until:
+            time.sleep(0.2)
+            screen = screen_now()
+            if not screen or text[:20] in screen["input"]:
+                break
+        time.sleep(0.5)
+        press("enter")
+        for _ in range(2):
+            time.sleep(1.0)
+            screen = screen_now()
+            if not screen or not screen["input"] or text[:20] not in screen["input"]:
+                return
+            log("Tekst nadal czeka w polu Claude - ponawiam Enter.")
+            press("enter")
+
+    def new_conversation():
+        if recording_now() is not False:
+            press("esc")
+            time.sleep(0.4)
+        submit("/clear")
+        beep(cfg, 660, 120)
+        beep(cfg, 880, 120)
+        to_idle("Nowa rozmowa (/clear).")
+
+    def handle(request):
+        """Polecenia z aplikacji okienkowej (przyciski, pole czatu) - wykonywane w tym watku,
+        wiec nie mieszaja sie z klawiszami wysylanymi po slowach kluczowych."""
+        kind, arg = request if isinstance(request, tuple) else (request, None)
+        if kind == "record" and state == IDLE:
+            stop_speech()
+            (STATE / "followup.json").unlink(missing_ok=True)
+            start_recording("Nagrywanie z przycisku.")
+        elif kind == "send" and state == RECORDING:
+            send()
+        elif kind == "cancel" and state == RECORDING:
+            cancel_recording()
+        elif kind == "clear":
+            new_conversation()
+        elif kind == "type" and arg:
+            if state == RECORDING:
+                cancel_recording()
+            # Claude Code w trakcie pracy kolejkuje wiadomosc i wysle ja po skonczeniu biezacej
+            submit(" ".join(arg.split()))
+            log("Wyslano wiadomosc z okna czatu.")
+        elif kind == "key" and arg:
+            press(*arg)
+
+    with Microphone(sd, device, on_audio) as mic:
+        log(f"Mikrofon: {sd.query_devices(device, 'input')['name']}")
+        log(f"Stan: {state}")
+        shown_state = None
+        mic_retry = 0.0
+        while not ui.stop.is_set():
+            try:
+                chunk = audio.get(timeout=0.5)
+            except queue.Empty:
+                chunk = None
+            if not pid_alive(pid):
+                log("Okno Achai zostalo zamkniete - koncze nasluch.")
+                return "closed"
+            # pauza zwalnia mikrofon: sluchawki Bluetooth wracaja z trybu zestawu glosnomowiacego do stereo
+            # (YouTube, gry); nagrywanie z przycisku w czasie pauzy otwiera go na chwile
+            need_mic = not ui.paused or state != IDLE
+            if need_mic != mic.is_open and time.time() >= mic_retry:
+                try:
+                    if need_mic:
+                        while not audio.empty():
+                            audio.get_nowait()
+                        wake_rec.Reset()
+                        mic.open()
+                        log("Nasluch wznowiony - mikrofon otwarty.")
+                    else:
+                        mic.close()
+                        log("Nasluch wstrzymany - mikrofon zwolniony (sluchawki graja normalnie).")
+                except Exception as exc:  # np. sluchawki odlaczone - sprobujemy znowu za chwile
+                    mic_retry = time.time() + 5
+                    log(f"BLAD mikrofonu: {exc}")
+            while not ui.requests.empty():
+                handle(ui.requests.get_nowait())
+            if state != shown_state:
+                shown_state = state
+                ui.on_state("recording" if state == RECORDING else "idle", pid)
+            now = time.time()
+            # co chwile sprawdzamy pasek stanu Claude Code (po wstrzyknieciu klawiszy chwila na reakcje)
+            if screen_sync and now - last_sync >= (1.0 if state == RECORDING else 2.0) and now - last_inject > 2.5:
+                last_sync = now
+                rec = recording_now()
+                if state == RECORDING and rec is False:
+                    to_idle("Claude zakonczyl nagrywanie (brak REC na ekranie).")
+                elif state == IDLE and rec:
+                    free_rec.Reset()
+                    partial_text = ""
+                    state, started, last_speech = RECORDING, now, now
+                    write_json(STATE / "recording.json", {"at": started})
+                    log(f"Claude nagrywa (wlaczone poza mna) - dolaczam. Stan: {state}")
+            if state == RECORDING and not screen_ok and (now - started > max_rec
+                                                         or now - max(started, last_speech) > silence_stop):
+                to_idle("Cisza lub limit czasu - Claude sam zakonczyl nagrywanie.")
+            if state == IDLE and followup and not ui.paused and followup_ready(now):
+                start_recording("Achaja zadala pytanie - slucham odpowiedzi.")
+            if state == IDLE and remind_after:
+                work = read_json(STATE / "achaja_state.json", {})
+                busy_for = now - work.get("since", now)
+                if (work.get("state") == "busy" and remind_after <= busy_for < remind_max
+                        and (last_reminder < work["since"] or now - last_reminder >= remind_every)
+                        and not speaking()):
+                    last_reminder = now
+                    say(random.choice(cfg["voice"].get("working_phrases") or ["Nadal pracuję."]))
+                    log(f"Achaja pracuje od {int(busy_for)} s - przypomnienie glosowe.")
+            if now - last_plan >= 15:
+                last_plan = now
+                try:
+                    kinds = {"job"}  # zadania w tle ida zawsze - to osobna sesja Claude
+                    if state == IDLE:  # nie wchodzimy w nagrywanie
+                        kinds.add("say")
+                        work = read_json(STATE / "achaja_state.json", {})
+                        if work.get("state", "idle") == "idle" and not speaking():
+                            kinds.add("prompt")  # polecenie tylko, gdy Achaja nic nie robi
+                    for due in plan.take_due(kinds):
+                        if due["kind"] == "say":
+                            say(due["text"])
+                            log(f"Przypomnienie: {due['text']}")
+                        elif due["kind"] == "job":
+                            from achaja.plan import jobs
+                            log(f"Zadanie w tle '{due['item'].get('name')}': {jobs.start(due['item'])}")
+                        else:
+                            submit(f"{plan.SCHEDULED} {due['text']}")
+                            log(f"Zaplanowane polecenie: {due['text']}")
+                    if now - last_backup >= 600:
+                        last_backup = now
+                        from achaja.core import backup
+                        if backup.due():
+                            subprocess.Popen([str(PYTHONW), "-m", "achaja.core.backup", "auto"], cwd=str(ROOT),
+                                             creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+                            log("Kopia zapasowa ustawien i danych (backup.py auto).")
+                except Exception as exc:
+                    log(f"BLAD planu (plan.py): {exc!r}")
+            if chunk is None:
+                continue
+
+            if state == IDLE and ui.paused:
+                continue  # nasluch wstrzymany w aplikacji - mikrofon nie wybudza
+            if state == IDLE:
+                # tylko zakonczone wypowiedzi: wyniki czastkowe przy gramatyce lapaly "haha", "ja ha"
+                if not wake_rec.AcceptWaveform(chunk):
+                    continue
+                result = json.loads(wake_rec.Result())
+                if result.get("text") and cfg["wake"].get("debug", True):
+                    # "[unk]" = slyszy mowe, ale nie rozpoznal frazy wybudzenia
+                    confs = " ".join(f"{w['word']}:{w.get('conf', 0):.2f}" for w in result.get("result", []))
+                    log(f"  czuwanie: {result['text']}  ({confs})")
+                if wake_heard(result, wake, wake_conf, wake_isolated):
+                    stop_speech()
+                    (STATE / "followup.json").unlink(missing_ok=True)
+                    ui.on_state("wake", pid)
+                    shown_state = None  # po "Slucham" stan odswiezy sie, takze gdy nagrywanie nie ruszy
+                    if wake_replies:
+                        reply_to_wake(wake_replies, wake_clips)
+                        while not audio.empty():  # to, co mikrofon slyszal w trakcie "Slucham", wyrzucamy
+                            audio.get_nowait()
+                    start_recording("Uslyszalem Achaje.")
+                continue
+
+            # RECORDING
+            if not free_rec.AcceptWaveform(chunk):
+                partial = json.loads(free_rec.PartialResult()).get("partial", "").strip()
+                if partial != partial_text:
+                    partial_text, partial_since = partial, now
+                    ui.heard = partial
+                if partial:
+                    last_speech = now
+                # szybka sciezka: slowo koncowe na koncu i nic nowego przez end_stable sekund
+                if not (partial and now - partial_since >= end_stable and ends_with(partial, end, end_match)):
+                    continue
+                text = partial
+                free_rec.Reset()
+            else:
+                text = json.loads(free_rec.Result()).get("text", "").strip()
+            partial_text = ""
+            if not text:
+                continue
+            last_speech = time.time()
+            ui.heard = text
+            log(f"  slysze: {text}")
+            if ends_with(text, end, end_match):
+                send()
+            elif text in cancel:
+                cancel_recording()
+            elif text in clear:
+                new_conversation()
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass

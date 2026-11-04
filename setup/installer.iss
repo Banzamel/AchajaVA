@@ -97,6 +97,10 @@ Name: "{autoprograms}\{cm:ConfigName}"; Filename: "{app}\Achaja.exe"; Parameters
 Name: "{autodesktop}\Achaja"; Filename: "{app}\Achaja.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 Name: "{userstartup}\Achaja"; Filename: "{app}\Achaja.exe"; Parameters: "--minimized"; WorkingDir: "{app}"; Tasks: autostart
 
+[InstallDelete]
+; od 0.10.0 kod jest w src\achaja - stary folder skryptow z poprzednich wersji
+Type: filesandordirs; Name: "{app}\.claude\scripts"
+
 [Run]
 Filename: "{app}\Achaja.exe"; WorkingDir: "{app}"; Description: "{cm:LaunchNow}"; Flags: postinstall nowait skipifsilent
 ; aktualizacja z aplikacji (/SILENT /relaunch=1) - po instalacji Achaja startuje sama
@@ -110,7 +114,7 @@ Type: filesandordirs; Name: "{app}\.venv"
 Type: filesandordirs; Name: "{app}\runtime"
 Type: filesandordirs; Name: "{app}\models"
 Type: files; Name: "{app}\.claude\settings.json"
-Type: filesandordirs; Name: "{app}\.claude\scripts\__pycache__"
+Type: filesandordirs; Name: "{app}\src\achaja\__pycache__"
 Type: filesandordirs; Name: "{app}\setup\__pycache__"
 ; config.json, state\, .mcp.json i ustawienia lokalne usuwa CurUninstallStepChanged - tylko na życzenie
 

@@ -31,7 +31,7 @@ if (-not (Test-Path $notes)) {
     throw "Brak opisu wydania .github\releases\$Version.md - pierwsza linia '# Achaja $Version — podtytuł', dalej lista zmian (wzór: poprzednie pliki w tym folderze)."
 }
 
-$common = Join-Path $root ".claude\scripts\common.py"
+$common = Join-Path $root "src\achaja\core\common.py"
 $text = Get-Content $common -Raw -Encoding UTF8
 $old = [regex]::Match($text, '__version__ = "([^"]+)"').Groups[1].Value
 if ([version]$Version -le [version]$old) { throw "Nowa wersja $Version musi być wyższa niż $old." }

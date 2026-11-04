@@ -39,6 +39,9 @@ Write-Host "Instaluję biblioteki (requirements.txt)..."
 & $venvPython -m pip install --quiet --disable-pip-version-check --upgrade pip
 & $venvPython -m pip install --quiet --disable-pip-version-check -r (Join-Path $root "requirements.txt")
 if ($LASTEXITCODE -ne 0) { throw "Instalacja bibliotek nie powiodła się (sprawdź połączenie z internetem)." }
+# Kod Achai (src\achaja) widoczny dla Pythona z .venv: "python -m achaja ..." dziala z kazdego folderu (hooki, skrypty)
+$sitePackages = (& $venvPython -c "import sysconfig; print(sysconfig.get_paths()['purelib'])").Trim()
+[IO.File]::WriteAllText((Join-Path $sitePackages "achaja.pth"), (Join-Path $root "src") + "`n", (New-Object Text.UTF8Encoding $false))
 
 # 3. Konfiguracja (jeden plik dla wszystkich języków; blok "languages" wybiera słowa i model)
 $config = Join-Path $root "config.json"
@@ -86,7 +89,7 @@ if (-not (Test-Path $settings) -or (Get-Content $settings -Raw -Encoding UTF8) -
 $exe = Join-Path $root "Achaja.exe"
 if (-not (Test-Path $exe)) {
     try { & (Join-Path $root "setup\build-launcher.ps1") -Out $exe }
-    catch { Write-Host "Nie udało się zbudować Achaja.exe ($_) - użyj .venv\Scripts\pythonw.exe .claude\scripts\app.py" -ForegroundColor Yellow }
+    catch { Write-Host "Nie udało się zbudować Achaja.exe ($_) - użyj .venv\Scripts\pythonw.exe -m achaja.ui.app" -ForegroundColor Yellow }
 }
 
 # 7. Opcjonalnie: autostart
@@ -99,7 +102,7 @@ if ($Autostart) {
         $s.Arguments = "--minimized"
     } else {
         $s.TargetPath = Join-Path $root ".venv\Scripts\pythonw.exe"   # okno aplikacji, bez konsoli
-        $s.Arguments = '"' + (Join-Path $root ".claude\scripts\app.py") + '" --minimized'
+        $s.Arguments = '-m achaja.ui.app --minimized'
     }
     $s.WorkingDirectory = $root
     $s.IconLocation = Join-Path $root "setup\assets\achaja.ico"
@@ -124,6 +127,6 @@ if (-not $NoConfigure) {
 
 Write-Host ""
 Write-Host "Gotowe." -ForegroundColor Green
-Write-Host "  Start: Achaja.exe (albo .venv\Scripts\pythonw.exe .claude\scripts\app.py), potem powiedz słowo wybudzenia."
+Write-Host "  Start: Achaja.exe (albo .venv\Scripts\pythonw.exe -m achaja.ui.app), potem powiedz słowo wybudzenia."
 Write-Host "  Tryb konsolowy (diagnostyka): start-achaja.cmd"
 Write-Host "  Zmiana ustawień później: menu Achaja > Ustawienia w oknie programu (albo Achaja.exe --settings)"

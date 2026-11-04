@@ -12,7 +12,7 @@
           {
             "type": "command",
             "command": "__PROJECT_DIR__/.venv/Scripts/python.exe",
-            "args": ["__PROJECT_DIR__/.claude/scripts/hook_gate.py"],
+            "args": ["-m", "achaja.hooks.gate"],
             "timeout": 10
           }
         ]
@@ -23,7 +23,7 @@
           {
             "type": "command",
             "command": "__PROJECT_DIR__/.venv/Scripts/python.exe",
-            "args": ["__PROJECT_DIR__/.claude/scripts/hook_ha.py"],
+            "args": ["-m", "achaja.hooks.home_guard"],
             "timeout": 20
           }
         ]
@@ -35,7 +35,7 @@
           {
             "type": "command",
             "command": "__PROJECT_DIR__/.venv/Scripts/python.exe",
-            "args": ["__PROJECT_DIR__/.claude/scripts/hook_event.py"],
+            "args": ["-m", "achaja.hooks.event"],
             "timeout": 10
           }
         ]
@@ -47,7 +47,7 @@
           {
             "type": "command",
             "command": "__PROJECT_DIR__/.venv/Scripts/python.exe",
-            "args": ["__PROJECT_DIR__/.claude/scripts/hook_stop.py"],
+            "args": ["-m", "achaja.hooks.stop"],
             "timeout": 15
           }
         ]
@@ -59,7 +59,7 @@
           {
             "type": "command",
             "command": "__PROJECT_DIR__/.venv/Scripts/python.exe",
-            "args": ["__PROJECT_DIR__/.claude/scripts/hook_event.py"],
+            "args": ["-m", "achaja.hooks.event"],
             "timeout": 10
           }
         ]
