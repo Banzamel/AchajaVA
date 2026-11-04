@@ -57,7 +57,7 @@ TEXT = {
         "already": "Achaja już działa w oknie konsoli (start-achaja.cmd).",
         "edit_config": "Edytuj plik konfiguracji", "check_update": "Sprawdź aktualizacje", "about": "O programie",
         "about_text": "Achaja {}\nGłosowa asystentka dla Claude Code.\n\ngithub.com/Banzamel/AchajaVA",
-        "upd_downloading": "Pobieram nową wersję {}… {}%", "upd_ready": "Nowa wersja {} jest gotowa — zainstaluję ją przy zamknięciu Achai.",
+        "upd_downloading": "Pobieram nową wersję {}… {}%", "upd_ready": "Wersja {} gotowa — zainstaluję ją przy zamknięciu.",
         "upd_ready_manual": "Nowa wersja {} jest gotowa do instalacji.", "upd_install": "Zainstaluj teraz",
         "upd_source": "Na GitHubie jest nowa wersja {} (kopia z gita: git pull).", "upd_open": "Otwórz stronę",
         "upd_none": "Masz najnowszą wersję ({}).", "upd_error": "Nie udało się sprawdzić aktualizacji: {}",
@@ -506,8 +506,12 @@ class App:
         self.hint.pack()
         # pasek aktualizacji - pokazuje sie, gdy jest nowa wersja
         self.upd_bar = ttk.Frame(self.root, style="Banner.TFrame", padding=(px(14), px(6), px(6), px(6)))
-        self.upd_label = ttk.Label(self.upd_bar, style="Banner.TLabel")
-        self.upd_label.pack(side="left")
+        # tekst zawija sie w miejscu, ktore zostaje obok przycisku - przycisk nigdy nie jest uciety
+        self.upd_label = ttk.Label(self.upd_bar, style="Banner.TLabel", justify="left")
+        self.upd_label.pack(side="left", fill="x", expand=True)
+        self.upd_bar.bind("<Configure>", lambda e: self.upd_label.configure(wraplength=max(
+            px(120), e.width - px(28) - (self.upd_btn.winfo_reqwidth() + px(8)
+                                        if self.upd_btn.winfo_ismapped() else 0))))
         self.upd_btn = ttk.Button(self.upd_bar, style="Banner.Accent.TButton", command=self.update_action)
         self.upd_shown = None
 
@@ -1090,7 +1094,7 @@ class App:
         self.upd_label.configure(text=text)
         if action:
             self.upd_btn.configure(text=self.t["upd_install"] if action == "install" else self.t["upd_open"])
-            self.upd_btn.pack(side="right")
+            self.upd_btn.pack(side="right", anchor="center", padx=(self.theme.px(8), 0), before=self.upd_label)
         else:
             self.upd_btn.pack_forget()
         if not self.upd_bar.winfo_ismapped():
@@ -1215,11 +1219,15 @@ class App:
         if key == "rec":
             self.talk_btn.configure(text="➤  " + self.t["send_rec"])
             if not self.cancel_btn.winfo_ismapped():
+                # przy nagrywaniu "Wstrzymaj" nie ma sensu - jego miejsce zajmuje "Anuluj" (trzy nie mieszcza sie)
+                self.pause_btn.pack_forget()
                 self.cancel_btn.pack(side="left", padx=(self.theme.px(6), 0), after=self.talk_btn)
         else:
             self.talk_btn.configure(text="◉  " + self.t["talk"])
             if self.cancel_btn.winfo_ismapped():
                 self.cancel_btn.pack_forget()
+            if not self.pause_btn.winfo_ismapped():
+                self.pause_btn.pack(side="left", padx=(self.theme.px(6), 0), after=self.talk_btn)
 
         # pasek na zywo: co dyktujesz (tekst z pola Claude, a zanim sie pojawi - to, co slyszy Vosk)
         if key == "rec":

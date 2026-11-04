@@ -29,6 +29,8 @@ TEXT = {
         "total": "Razem {} w ~/.claude · sesje {}", "loading": "Wczytuję…",
         "del_session": "Usunąć zapis sesji „{}”? Nie da się jej potem wznowić.",
         "del_project": "Usunąć wszystkie sesje Claude projektu\n{}?\nPliki projektu zostaną nietknięte.",
+        "del_many": "Usunąć zaznaczone: sesje ({}) i wszystkie sesje projektów ({})?\n"
+                    "Nie da się ich potem wznowić. Pliki projektów zostaną nietknięte.",
         "clean_ask": "Usunąć {} sesji starszych niż {} dni i {} starych plików pomocniczych ({})?",
         "clean_none": "Nie ma nic starszego niż {} dni.", "freed": "Zwolniono {}.",
         "active": "aktywna", "current": "bieżąca Achai", "agent": "agent {}",
@@ -46,6 +48,8 @@ TEXT = {
         "total": "{} in ~/.claude · sessions {}", "loading": "Loading…",
         "del_session": "Delete the session “{}”? It can't be resumed afterwards.",
         "del_project": "Delete all Claude sessions of\n{}?\nThe project's own files stay untouched.",
+        "del_many": "Delete the selected: sessions ({}) and all sessions of projects ({})?\n"
+                    "They can't be resumed afterwards. The projects' own files stay untouched.",
         "clean_ask": "Delete {} sessions older than {} days and {} old helper files ({})?",
         "clean_none": "Nothing older than {} days.", "freed": "Freed {}.",
         "active": "active", "current": "Achaja's current", "agent": "agent {}",
@@ -182,6 +186,14 @@ class ClaudeTab:
         self.bars = tk.Canvas(card, height=px(40), highlightthickness=0, borderwidth=0)
         self.bars.pack(fill="x", pady=(px(6), 0))
         self.bars.bind("<Configure>", lambda e: self.draw_bars())
+        # przyciski najpierw na dole - inaczej przy niskim oknie lista je wypycha i "Usun" znika
+        bar = ttk.Frame(frame)
+        bar.pack(side="bottom", fill="x", pady=(px(6), 0))
+        self.del_btn = ttk.Button(bar, text=self.t["delete"], style="Key.TButton", command=self.delete)
+        self.del_btn.pack(side="left")
+        ttk.Button(bar, text=self.t["clean"].format(CLEAN_DAYS), style="Key.TButton",
+                   command=self.clean).pack(side="left", padx=(px(6), 0))
+        ttk.Button(bar, text=self.t["open_dir"], style="Key.TButton", command=self.open_dir).pack(side="right")
         lower = ttk.Frame(frame, style="Card.TFrame", padding=px(6))
         lower.pack(fill="both", expand=True, pady=(px(8), 0))
         ttk.Label(lower, style="CardTitle.TLabel", text=self.t["sessions"]).pack(anchor="w", padx=px(4))
@@ -189,7 +201,8 @@ class ClaudeTab:
         self.total.pack(anchor="w", padx=px(4), pady=(0, px(4)))
         wrap = ttk.Frame(lower, style="Plain.TFrame")
         wrap.pack(fill="both", expand=True)
-        self.tree = ttk.Treeview(wrap, columns=("size", "date"), show="tree headings", selectmode="browse")
+        # kilka naraz: Ctrl+klik, Shift+klik; Delete albo prawy przycisk -> Usun
+        self.tree = ttk.Treeview(wrap, columns=("size", "date"), show="tree headings", selectmode="extended")
         self.tree.heading("#0", text=self.t["col_name"], anchor="w")
         self.tree.heading("size", text=self.t["col_size"], anchor="e")
         self.tree.heading("date", text=self.t["col_date"], anchor="w")
@@ -201,12 +214,10 @@ class ClaudeTab:
         sb.pack(side="right", fill="y")
         self.tree.pack(side="left", fill="both", expand=True)
         self.tree.bind("<<TreeviewOpen>>", self.on_open)
-        bar = ttk.Frame(frame)
-        bar.pack(fill="x", pady=(px(6), 0))
-        ttk.Button(bar, text=self.t["delete"], style="Key.TButton", command=self.delete).pack(side="left")
-        ttk.Button(bar, text=self.t["clean"].format(CLEAN_DAYS), style="Key.TButton",
-                   command=self.clean).pack(side="left", padx=(px(6), 0))
-        ttk.Button(bar, text=self.t["open_dir"], style="Key.TButton", command=self.open_dir).pack(side="right")
+        self.tree.bind("<<TreeviewSelect>>", lambda e: self.update_delete())
+        self.tree.bind("<Delete>", lambda e: self.delete())
+        self.tree.bind("<Button-3>", self.context_menu)
+        self.update_delete()
         self.account, self.windows, self.usage_error = None, [], ""
         self.busy, self.loaded_at, self.projects = False, 0, {}
 
@@ -316,27 +327,58 @@ class ClaudeTab:
             self.refresh(usage_only=bool(self.projects))
 
     # --- akcje uzytkownika ---
-    def delete(self):
+    def targets(self):
+        """Zaznaczone projekty i sesje; sesje projektu, ktory sam jest zaznaczony, sa juz w nim."""
         sel = self.tree.selection()
-        if not sel:
+        projects = [i[2:] for i in sel if i.startswith("p:")]
+        sessions = [tuple(i.split(":", 2)[1:]) for i in sel if i.startswith("s:")]
+        return projects, [(pid, sid) for pid, sid in sessions if pid not in projects]
+
+    def update_delete(self):
+        projects, sessions = self.targets()
+        n = len(projects) + len(sessions)
+        self.del_btn.configure(text=self.t["delete"] + (f" ({n})" if n > 1 else ""))
+        self.del_btn.state(["!disabled"] if n else ["disabled"])
+
+    def context_menu(self, event):
+        import tkinter as tk
+        row = self.tree.identify_row(event.y)
+        if not row:
             return
-        iid = sel[0]
-        try:
-            if iid.startswith("s:"):
-                _, pid, sid = iid.split(":", 2)
-                if not ask(self.app, self.t["del_session"].format(self.tree.item(iid, "text")[:80])):
-                    return
-                freed = claude_data.delete_session(pid, sid)
-            elif iid.startswith("p:"):
-                pid = iid[2:]
-                if not ask(self.app, self.t["del_project"].format(self.projects.get(pid, {}).get("path", pid))):
-                    return
-                freed = claude_data.delete_project(pid)
+        if row not in self.tree.selection():  # prawy klik poza zaznaczeniem - zaznacz ten wiersz
+            self.tree.selection_set(row)
+        menu = tk.Menu(self.tree, tearoff=0)
+        self.app.theme.menu(menu)
+        menu.add_command(label=self.del_btn.cget("text"), command=self.delete)
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def delete(self):
+        projects, sessions = self.targets()
+        if not projects and not sessions:
+            return
+        if len(projects) + len(sessions) == 1:
+            if projects:
+                question = self.t["del_project"].format(self.projects.get(projects[0], {}).get("path", projects[0]))
             else:
-                return
-        except claude_data.DataError as exc:
-            self.app.add_note(str(exc))
+                pid, sid = sessions[0]
+                question = self.t["del_session"].format(self.tree.item(f"s:{pid}:{sid}", "text")[:80])
+        else:
+            question = self.t["del_many"].format(len(sessions), len(projects))
+        if not ask(self.app, question):
             return
+        freed, errors = 0, []
+        for pid in projects:
+            try:
+                freed += claude_data.delete_project(pid)
+            except claude_data.DataError as exc:
+                errors.append(str(exc))
+        for pid, sid in sessions:
+            try:
+                freed += claude_data.delete_session(pid, sid)
+            except claude_data.DataError as exc:  # np. aktywna sesja albo biezaca rozmowa Achai
+                errors.append(str(exc))
+        for err in errors:
+            self.app.add_note(err)
         self.app.add_note(self.t["freed"].format(claude_data.human(freed)))
         self.refresh()
 
