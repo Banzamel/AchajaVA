@@ -4,7 +4,7 @@ import os
 import sys
 from pathlib import Path
 
-__version__ = "0.11.2"
+__version__ = "0.12.0"
 
 ROOT = Path(__file__).resolve().parents[3]  # folder Achai (src/achaja/core/common.py)
 SRC = ROOT / "src"
