@@ -43,6 +43,7 @@ COMMANDS = [
      "deploy lub publikacja", "deploy"),
     (cli("mail", "mail", "mail") + r"(?:send|reply)\b(?![^\n]*--(?:draft|dry-run))", "wyslanie maila", "mail"),
     (r"\bsend-mailmessage\b", "wyslanie maila", "mail"),
+    (cli("gmail", "gmail", "gmail") + r"unsubscribe\b", "wypisanie z listy mailingowej", "mail"),
     (cli("ha", "ha", "ha") + r"[^\n]*--confirmed", "zamek, brama, garaz lub alarm", "home"),
     (cli("update", "update", "update") + r"install\b", "instalacja aktualizacji", "system"),
     (cli("plan", "plan", "plan") + r"add\b[^\n]*--allow", "stala zgoda dla zadania w tle", "system"),
