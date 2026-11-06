@@ -233,6 +233,7 @@ def deliver(pending, pc, cfg):
 
 
 def check(cfg, pc):
+    DIR.mkdir(parents=True, exist_ok=True)
     state = read_json(STATE_FILE, {})
     state.setdefault("since", time.time() - pc["interval"] * 60)
     state.setdefault("seen", [])
@@ -270,6 +271,8 @@ def check(cfg, pc):
 def run():
     if not single_instance("AchajaPhone"):
         return 0
+    DIR.mkdir(parents=True, exist_ok=True)
+    write_json(DIR / "run.json", {"pid": os.getpid()})
     while True:
         cfg = load_config()
         pc = settings(cfg)

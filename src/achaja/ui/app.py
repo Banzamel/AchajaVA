@@ -1348,11 +1348,7 @@ class App:
         pid = self.claude_pid()
         if self.bridge:
             self.bridge.stop.set()
-        if pid and self.bridge and self.bridge.hidden:
-            from achaja.core import console
-            if not console.is_visible(pid):  # ukryta sesja bez okna zostalaby w tle na zawsze
-                subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
-                               stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
+        stop_background(pid)  # po zamknieciu Achai nic nie zostaje w tle
         if self.tray:
             self.tray.stop()
         self.root.destroy()
@@ -1361,6 +1357,33 @@ class App:
 
     def run(self):
         self.root.mainloop()
+
+
+def background_pids():
+    """Procesy Achai dzialajace poza oknem: poczta, telefon, mowa, agenci, zadania w tle."""
+    pids = [read_json(STATE / "mail" / "status.json", {}).get("pid"), read_json(STATE / "phone" / "run.json", {}).get("pid")]
+    pids += [r.get("pid") for r in read_json(AGENTS_STATE / "running.json", {}).values()]
+    for path in [STATE / "tts.pid", *(STATE / "jobs").glob("*.pid")]:
+        try:
+            pids.append(int(path.read_text()))
+        except (OSError, ValueError):
+            pass
+    return {p for p in pids if isinstance(p, int) and p > 0}
+
+
+def is_achaja_process(pid):
+    """Numer z pliku moze byc nieaktualny (po restarcie komputera nalezy juz do innego programu)."""
+    out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"], capture_output=True, text=True,
+                         stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW).stdout.lower()
+    return "python" in out or "claude" in out or "cmd.exe" in out
+
+
+def stop_background(session_pid=None):
+    """Zamyka sesje Claude i wszystkie procesy w tle wraz z ich potomkami."""
+    for pid in background_pids() | ({session_pid} if session_pid else set()):
+        if pid != os.getpid() and pid_alive(pid) and is_achaja_process(pid):
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
+                           stdin=subprocess.DEVNULL, creationflags=CREATE_NO_WINDOW)
 
 
 def main():
