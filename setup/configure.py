@@ -94,7 +94,8 @@ def state_for_form(modules):
         },
         "agents": {"project_roots": cfg.get("agents", {}).get("project_roots", [])},
         "ha": {"enabled": MCP.exists(), "url": cfg.get("home_assistant", {}).get("url", ""),
-               "has_token": HA_TOKEN.exists() and bool(HA_TOKEN.read_text(encoding="utf-8").strip())},
+               "has_token": HA_TOKEN.exists() and bool(HA_TOKEN.read_text(encoding="utf-8").strip()),
+               "phone": cfg.get("phone_alerts") or {}},
         "mail": {
             "enabled": bool(m.get("enabled")),
             **{k: m.get(k, mail.DEFAULTS.get(k, "")) for k in MAIL_KEYS},
@@ -179,6 +180,9 @@ def apply_form(data, modules):
         servers = set(local.get("enabledMcpjsonServers", [])) | {"home-assistant"}
         local["enabledMcpjsonServers"] = sorted(servers)
         SETTINGS_LOCAL.write_text(json.dumps(local, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        phone = data["ha"].get("phone")
+        if phone:
+            cfg.setdefault("phone_alerts", {}).update(phone)
 
     m = cfg.setdefault("mail", {})
     if "mail" in modules:
@@ -236,6 +240,16 @@ def test_ha(url, token):
         return [(False, f"{type(exc).__name__}: {exc}")]
 
 
+def find_phones(url, token):
+    """Uslugi notify.mobile_app_* z Home Assistant - telefony z aplikacja mobilna."""
+    token = token or (HA_TOKEN.read_text(encoding="utf-8").strip() if HA_TOKEN.exists() else "")
+    req = urllib.request.Request(url.rstrip("/") + "/api/services", headers={"Authorization": f"Bearer {token}"})
+    with urllib.request.urlopen(req, timeout=8) as r:
+        services = json.load(r)
+    names = [n for d in services if d.get("domain") == "notify" for n in d.get("services", {})]
+    return sorted(n for n in names if n.startswith("mobile_app_"))
+
+
 def discover_cast():
     try:
         import pychromecast
@@ -288,6 +302,10 @@ TEXT = {
         "c_important": "ważnych", "c_threat": "zagrożeniach", "c_ad": "reklamach", "c_spam": "spamie",
         "ha": "Home Assistant", "ha_sub": "Sterowanie domem przez integrację „Model Context Protocol Server” i token długoterminowy.",
         "ha_on": "Włącz Home Assistant", "ha_url": "Adres Home Assistant", "ha_token": "Token (puste = bez zmian)",
+        "ph_title": "Ważna poczta na telefonie", "ph_on": "Powiadamiaj o ważnych mailach (wymaga konektora Gmail w Claude)",
+        "ph_service": "Telefon (usługa powiadomień)", "ph_find": "Znajdź telefony", "ph_none": "Nie znalazłam telefonów z aplikacją HA.",
+        "ph_mode": "Sposób powiadomień", "ph_both": "push i głos", "ph_push": "tylko push", "ph_voice": "tylko głos",
+        "ph_silent": "Głos ignoruje wyciszenie telefonu (pełna głośność alarmu)", "ph_hours": "Godziny głosu (np. 08:00-22:00, puste = zawsze)",
         "summary": "Podsumowanie", "summary_sub": "Sprawdź i zapisz. Ustawienia zmienisz później w menu Start: „Achaja – ustawienia”.",
         "acc_title": "Konto pocztowe", "acc_name": "Nazwa konta", "acc_user": "Adres / login", "acc_pass": "Hasło (puste = bez zmian)",
         "acc_host": "Serwer", "acc_port": "Port", "acc_sec": "Szyfrowanie", "acc_display": "Twoje imię w odpowiedziach",
@@ -323,6 +341,10 @@ TEXT = {
         "c_important": "important", "c_threat": "threats", "c_ad": "ads", "c_spam": "spam",
         "ha": "Home Assistant", "ha_sub": "Home control through the “Model Context Protocol Server” integration and a long-lived token.",
         "ha_on": "Enable Home Assistant", "ha_url": "Home Assistant address", "ha_token": "Token (empty = unchanged)",
+        "ph_title": "Important mail on your phone", "ph_on": "Notify about important mail (needs the Gmail connector in Claude)",
+        "ph_service": "Phone (notify service)", "ph_find": "Find phones", "ph_none": "No phones with the HA app found.",
+        "ph_mode": "Notification type", "ph_both": "push and voice", "ph_push": "push only", "ph_voice": "voice only",
+        "ph_silent": "Voice ignores silent mode (full alarm volume)", "ph_hours": "Voice hours (e.g. 08:00-22:00, empty = always)",
         "summary": "Summary", "summary_sub": "Check and save. Change settings later from the Start menu: “Achaja – settings”.",
         "acc_title": "Mail account", "acc_name": "Account name", "acc_user": "Address / login", "acc_pass": "Password (empty = unchanged)",
         "acc_host": "Server", "acc_port": "Port", "acc_sec": "Encryption", "acc_display": "Your name in replies",
@@ -524,7 +546,7 @@ class Wizard:
     # --- dane ---
     def vars(self):
         tk, s = self.tk, self.state
-        v, m, h = s["voice"], s["mail"], s["ha"]
+        v, m, h, ph = s["voice"], s["mail"], s["ha"], s["ha"]["phone"]
         self.v = {
             "language": tk.StringVar(value=s["language"]),
             "model": tk.StringVar(value=s["achaja"].get("model", "sonnet")),
@@ -545,6 +567,12 @@ class Wizard:
             "ha_on": tk.BooleanVar(value=h["enabled"]),
             "ha_url": tk.StringVar(value=h["url"]),
             "ha_token": tk.StringVar(),
+            "ph_on": tk.BooleanVar(value=bool(ph.get("enabled"))),
+            "ph_service": tk.StringVar(value=ph.get("notify_service", "")),
+            "ph_mode": tk.StringVar(value=self.t["ph_push" if not ph.get("voice", True) else
+                                             "ph_voice" if not ph.get("push", True) else "ph_both"]),
+            "ph_silent": tk.BooleanVar(value=bool(ph.get("media_stream", "alarm_stream_max"))),
+            "ph_hours": tk.StringVar(value=ph.get("voice_hours", "08:00-22:00")),
         }
         self.announce = {c: tk.BooleanVar(value=c in m["announce"]) for c in ("important", "threat", "ad", "spam")}
         self.app_flags = {k: tk.BooleanVar(value=s["app"][k]) for k in APP_FLAGS}
@@ -937,6 +965,38 @@ class Wizard:
                         lambda r: status.configure(text=self.results_text(r)))
         ttk.Button(p, text=self.t["test"], command=test).grid(row=5, column=0, sticky="w")
 
+        box = ttk.LabelFrame(p, text=self.t["ph_title"], padding=10)
+        box.grid(row=7, column=0, sticky="we", pady=(12, 0))
+        box.columnconfigure(0, weight=1)
+        box.columnconfigure(1, weight=1)
+        ttk.Checkbutton(box, text=self.t["ph_on"], variable=self.v["ph_on"]).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 8))
+        service = ttk.Combobox(box, textvariable=self.v["ph_service"], width=36)
+        ttk.Label(box, text=self.t["ph_service"], style="Section.TLabel").grid(row=1, column=0, sticky="w", pady=(0, 3))
+        service.grid(row=2, column=0, sticky="we", pady=(0, 12), padx=(0, 12))
+        found = ttk.Label(box, style="Muted.TLabel")
+
+        def phones_found(names):
+            service.configure(values=names or [])
+            found.configure(text="" if names else self.t["ph_none"])
+            if names and not self.v["ph_service"].get():
+                self.v["ph_service"].set(names[0])
+
+        def find():
+            def work():
+                try:
+                    return find_phones(self.v["ha_url"].get(), self.v["ha_token"].get())
+                except Exception:
+                    return []
+            self.run_bg(work, phones_found)
+        ttk.Button(box, text=self.t["ph_find"], command=find).grid(row=2, column=1, sticky="nw", pady=(0, 12))
+        modes = [self.t[k] for k in ("ph_both", "ph_push", "ph_voice")]
+        self.field(box, self.t["ph_mode"], self.v["ph_mode"], 3, width=20, values=modes)
+        self.field(box, self.t["ph_hours"], self.v["ph_hours"], 3, width=20, col=1)
+        ttk.Checkbutton(box, text=self.t["ph_silent"], variable=self.v["ph_silent"]).grid(
+            row=5, column=0, columnspan=2, sticky="w")
+        found.grid(row=6, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
     def page_summary(self, p):
         ttk = self.ttk
         lines = [f"{self.t['language']}: {self.v['language'].get()} · {self.t['model']}: {self.v['model'].get()} / {self.v['effort'].get()}"]
@@ -966,6 +1026,15 @@ class Wizard:
         self.save_status.pack(anchor="w", pady=(14, 0))
 
     # --- zapis ---
+    def phone_form(self):
+        v = self.v
+        mode = v["ph_mode"].get()
+        return {"enabled": v["ph_on"].get(), "notify_service": v["ph_service"].get().strip(),
+                "push": mode not in {TEXT[x]["ph_voice"] for x in TEXT},
+                "voice": mode not in {TEXT[x]["ph_push"] for x in TEXT},
+                "media_stream": "alarm_stream_max" if v["ph_silent"].get() else "",
+                "voice_hours": v["ph_hours"].get().strip()}
+
     def form_data(self):
         v = self.v
         return {
@@ -977,7 +1046,8 @@ class Wizard:
                       "rate": v["rate"].get(), "default": "cast" if v["cast_default"].get() else "local",
                       "cast": {"enabled": v["cast_on"].get(), "name": v["cast_name"].get(), "host": v["cast_host"].get()}},
             "agents": {"project_roots": "\n".join(self.roots)},
-            "ha": {"enabled": v["ha_on"].get(), "url": v["ha_url"].get(), "token": v["ha_token"].get()},
+            "ha": {"enabled": v["ha_on"].get(), "url": v["ha_url"].get(), "token": v["ha_token"].get(),
+                   "phone": self.phone_form()},
             "mail": {"enabled": v["mail_on"].get(), "important_hint": self.hint_text,
                      "important_senders": v["important"].get(), "ignored_senders": v["ignored"].get(),
                      "quiet_hours": v["quiet"].get(), "digest_at": v["digest"].get(), "delete_after_days": v["delete"].get(),
