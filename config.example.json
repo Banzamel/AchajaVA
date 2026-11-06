@@ -44,7 +44,9 @@
   "achaja": {
     "_comment": "Model i wysiłek głównej sesji: sonnet+low = szybko, opus+medium = dokładniej. / Main session model and effort.",
     "model": "sonnet",
-    "effort": "low"
+    "effort": "low",
+    "remote_control": true,
+    "_remote_control": "Główną sesję można prowadzić zdalnie (telefon, claude.ai/code). / The main session can be driven remotely."
   },
 
   "voice": {
@@ -89,6 +91,23 @@
   "home_assistant": {
     "_comment": "Opcjonalne: wymaga integracji MCP w Home Assistant i tokenu w state/ha_token.txt. / Optional: needs the HA MCP integration and a token in state/ha_token.txt.",
     "url": "http://homeassistant.local:8123"
+  },
+
+  "phone_alerts": {
+    "_comment": "Opcjonalne: ważna poczta na telefon (push i głos przez aplikację mobilną Home Assistant). Gmail czyta tylko konektor Gmail z konta Claude; bez niego funkcja nic nie robi. / Optional: important mail on your phone via the Home Assistant app. Gmail is read only through the Claude Gmail connector; without it this does nothing.",
+    "enabled": false,
+    "notify_service": "",
+    "_notify_service": "Usługa HA, np. mobile_app_moj_telefon. / HA service, e.g. mobile_app_my_phone.",
+    "interval_minutes": 5,
+    "voice": true,
+    "push": true,
+    "voice_hours": "08:00-22:00",
+    "_voice_hours": "Poza tymi godzinami przychodzi sam push. / Outside these hours only the push is sent.",
+    "media_stream": "alarm_stream_max",
+    "_media_stream": "alarm_stream_max czyta też przy wyciszonym telefonie, na pełnej głośności alarmu; alarm_stream na bieżącej głośności alarmu; puste = strumień powiadomień. / alarm_stream_max speaks even when muted, at full alarm volume; alarm_stream uses the current alarm volume; empty = notification stream.",
+    "model": "haiku",
+    "imap": true,
+    "_imap": "Jeśli skonfigurowano mail.accounts, ich ważne maile też trafiają na telefon. / If mail.accounts is set, their important mail goes to the phone too."
   },
 
   "mail": {

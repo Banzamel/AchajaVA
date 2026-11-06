@@ -10,6 +10,7 @@ COMMANDS = {
     "jobs": ("achaja.plan.jobs", "wyniki zadan w tle"),
     "mail": ("achaja.mail.mail", "poczta: raport, odczyt, odpowiedzi, przywracanie"),
     "gmail": ("achaja.mail.gmail", "porzadki w Gmailu (konektor Claude): wypisywanie z list, zasady"),
+    "phone": ("achaja.mail.phone", "wazna poczta na telefon (push i glos przez Home Assistant)"),
     "ha": ("achaja.home.ha", "Home Assistant: stan, klimatyzacja, uslugi"),
     "agent": ("achaja.agents.agent", "agenci projektow"),
     "claude": ("achaja.claude.data", "konto, limity planu i sesje Claude Code"),

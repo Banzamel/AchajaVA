@@ -246,6 +246,8 @@ def launch_achaja(resume, hidden=False):
         args += ["--model", cfg["achaja"]["model"]]
     if cfg.get("achaja", {}).get("effort"):
         args += ["--effort", cfg["achaja"]["effort"]]
+    if cfg.get("achaja", {}).get("remote_control", True):
+        args += ["--remote-control", "Achaja"]  # sesje mozna prowadzic z telefonu lub z claude.ai/code
     if resume:
         args.append("--continue")
     env = clean_env()
@@ -271,6 +273,14 @@ def start_mail_watch(cfg):
         subprocess.Popen([str(PYTHONW), "-m", "achaja.mail.watch"], cwd=str(ROOT),
                          creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
         log("Nasluch poczty dziala w tle (mail.py status).")
+
+
+def start_phone_alerts(cfg):
+    """Wazna poczta na telefon (mail/phone.py sam pilnuje, zeby dzialala jedna kopia)."""
+    if (cfg.get("phone_alerts") or {}).get("enabled"):
+        subprocess.Popen([str(PYTHONW), "-m", "achaja.mail.phone", "run"], cwd=str(ROOT),
+                         creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+        log("Powiadomienia poczty na telefon dzialaja w tle (phone status).")
 
 
 def assign_claude_microphone(pid, mic):
@@ -425,6 +435,7 @@ def run(args, ui):
         pid = launch_achaja(resume, hidden=ui.hidden)
     write_json(STATE / "listener.json", {"listener_pid": os.getpid(), "claude_pid": pid, "version": __version__})
     start_mail_watch(cfg)
+    start_phone_alerts(cfg)
 
     audio = queue.Queue()
     device = pick_microphone(sd, args.device or cfg["wake"].get("microphone"))

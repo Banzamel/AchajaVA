@@ -101,6 +101,8 @@ Gdy `mail.enabled` — nasłuch w tle (IMAP IDLE, wiele kont) sam segreguje pocz
 
 **Gmail przez konektor Claude** (tylko gdy użytkownik połączył Gmaila w ustawieniach Claude → Konektory): porządki w skrzynce, usuwanie spamu i śmieci, wypisywanie z list, streszczenie ważnych i pytanie „usunąć?” → **skill `gmail`** (pomocnik `achaja gmail`). Spam oznacza od razu; kosz i wypisanie tylko po „tak” (bramka). Bez konektora — powiedz, jak go połączyć, i nic nie rób.
 
+**Ważna poczta na telefon** (`phone_alerts` w `config.json`, `achaja phone`): co 5 minut sprawdza Gmaila przez konektor Claude i wysyła na telefon push oraz głos przez aplikację Home Assistant — tylko ludzi, rozmowy, zadania rekrutacyjne, terminy, odmowy i decyzje. Bez połączonego konektora funkcja nic nie robi. Skrzynki IMAP dochodzą tylko, jeśli są skonfigurowane. „Czy powiadomienia działają?” → `achaja phone status`; próba → `achaja phone test`. Sesja sprawdzająca ma wyłącznie narzędzia do odczytu; niczego nie odpisuje, nie usuwa i nie oznacza.
+
 ## Agenci projektów
 Gdy użytkownik chce pracy nad projektem („niech agent od X poprawi…”, „zapytaj projekt Y…”), **użyj skilla `deleguj`**. Najważniejsze:
 - Agent to osobny proces `claude` uruchomiony w folderze projektu — ma **własny** `.claude`/CLAUDE.md projektu. Nie używaj do tego wbudowanego narzędzia Agent/subagentów (nie wczytałyby zasad projektu).
@@ -124,7 +126,7 @@ Gdy użytkownik chce pracy nad projektem („niech agent od X poprawi…”, „
   - `voice/` — `listener.py` (nasłuch), `speak.py` + `audio_out.py` (mowa), `output.py` (wybór wyjścia),
   - `ui/` — `app.py` (okno: rozmowa, terminal, agenci, plan, Claude, dziennik; uruchamia je `Achaja.exe`), `tabs.py` (zakładki Plan i Claude), `avatar.py`, `ornament.py`, `theme.py` (wygląd), `agent_view.py`,
   - `hooks/` — hooki sesji: `event.py` (prompt, powiadomienia), `stop.py` (czytanie `[GŁOS]`), `gate.py` (bramka potwierdzeń), `home_guard.py` (zamki i bramy dla MCP),
-  - `agents/agent.py` (agenci projektów), `mail/` (`mail.py`, `watch.py` — poczta), `home/ha.py` (Home Assistant przez REST), `plan/` (`plan.py` — harmonogram, `jobs.py` — zadania w tle), `claude/data.py` (konto, limity, sesje i miejsce Claude Code).
+  - `agents/agent.py` (agenci projektów), `mail/` (`mail.py`, `watch.py` — poczta, `gmail.py` — pomocnik konektora, `phone.py` — ważna poczta na telefon), `home/ha.py` (Home Assistant przez REST), `plan/` (`plan.py` — harmonogram, `jobs.py` — zadania w tle), `claude/data.py` (konto, limity, sesje i miejsce Claude Code).
 - `setup/` — `configure.py` (okienkowy kreator ustawień krok po kroku: mikrofon, głośnik, projekty, konta pocztowe, Home Assistant; „otwórz ustawienia” → `Start-Process ".venv\Scripts\pythonw.exe" "setup\configure.py"`), `set_app_audio.py` (mikrofon/głośnik dla wskazanego programu), `ha_areas.py` (obszary w Home Assistant), `trust.py` (folder Achai jako zaufany w Claude Code — bez tego ukryta sesja pyta przy starcie o serwer MCP), `installer.iss` + `build-installer.ps1` + `assets/` (instalator .exe, ikona i grafika), `launcher/` + `build-launcher.ps1` (Achaja.exe), `release.ps1` (nowe wydanie), szablon ustawień.
 - `state/` — pliki robocze (sesje agentów, logi, tokeny); nie publikuj ich.
 - Python z `.venv` — nie instaluj pakietów globalnie, tylko do `.venv` (`.venv\Scripts\python.exe -m pip install ...`).
