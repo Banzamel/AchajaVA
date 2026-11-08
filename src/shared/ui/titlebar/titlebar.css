@@ -1,0 +1,36 @@
+/* Title bar of the frameless window: the same in all the apps. Each app's theme sets the colours:
+   --titlebar-bg, --titlebar-line (bottom edge), --titlebar-text (the name), --titlebar-button,
+   --titlebar-button-hover, --titlebar-button-hover-text, --titlebar-button-press, --window-border. */
+:root { --titlebar-height: 38px; }
+
+.titlebar {
+  flex: none; height: var(--titlebar-height); display: flex; align-items: center; padding-left: 14px;
+  background: var(--titlebar-bg); border-bottom: 1px solid var(--titlebar-line);
+}
+.titlebar-brand { flex: none; display: flex; align-items: center; gap: 10px; }
+.titlebar-icon { width: 20px; height: 20px; display: grid; place-items: center; }
+.titlebar-icon > img { width: 20px; height: 20px; display: block; }
+.titlebar-name {
+  color: var(--titlebar-text); font: 700 12px/1 "Segoe UI", "Segoe UI Variable", system-ui, sans-serif;
+  letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap;
+}
+.titlebar-extra { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 8px; margin-left: 28px; overflow: hidden; }
+
+.titlebar-controls { flex: none; display: flex; height: 100%; }
+.titlebar-button {
+  width: 46px; height: 100%; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0;
+  background: transparent; color: var(--titlebar-button); cursor: default; outline: none;
+}
+.titlebar-button:hover { background: var(--titlebar-button-hover); color: var(--titlebar-button-hover-text); }
+.titlebar-button:active { background: var(--titlebar-button-press); }
+.titlebar-button.close:hover { background: #c42b1c; color: #fff; }
+.titlebar-button.close:active { background: #b3271a; color: #fff; }
+.titlebar-button:focus-visible { box-shadow: inset 0 0 0 1px var(--titlebar-button-hover-text); }
+.titlebar-glyph { display: block; }
+
+/* Windows 10: the frameless window has no frame of its own, so the page draws a 1px border on all four
+   sides (Windows 11 draws its own; a maximized window has none). Above everything, never clickable. */
+:root[data-window-border='drawn'] body::after {
+  content: ''; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none;
+  border: 1px solid var(--window-border);
+}

@@ -1,0 +1,43 @@
+/* The settings window: sidebar sections when editing, steps with chips on the first run. */
+.settings-root { padding: 0; }
+.settings { flex: 1; min-height: 0; display: flex; }
+.settings.wizard { flex-direction: column; }
+.settings-side { width: 230px; flex: none; background: var(--c-surface); padding: 14px 8px; display: flex; flex-direction: column; gap: 1px; overflow: auto; }
+.side-title { font: 700 19px "Cascadia Mono", Consolas, monospace; color: var(--c-accent-text); padding: 0 10px 6px; }
+.side-band { padding: 0 10px 12px; }
+.side-item { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--c-text); font: 14px "Segoe UI", sans-serif; padding: 7px 14px 7px 8px; border-radius: 6px; cursor: pointer; text-align: left; }
+.side-item:hover { background: var(--c-hover); }
+.side-item.selected { background: var(--c-accent-soft); }
+.side-icon { width: 26px; text-align: center; color: var(--c-accent-text); font-size: 16px; }
+.side-sep { height: 1px; background: var(--c-border); margin: 10px; }
+.settings-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.settings-head { padding: 20px 28px 4px; }
+.page-title { font-weight: 600; font-size: 22px; }
+.page-sub { color: var(--c-muted); max-width: 640px; }
+.section-label { color: var(--c-muted); font-size: 12px; font-weight: 600; }
+.settings-body { flex: 1; min-height: 0; overflow: auto; padding: 14px 28px 4px; }
+.settings-nav { display: flex; align-items: center; gap: 8px; padding: 12px 28px 18px; }
+.wizard-head { padding: 18px 24px 0; }
+.wizard-title-row { display: flex; gap: 12px; }
+.wizard-logo { width: 52px; height: 52px; }
+.progress { height: 4px; background: var(--c-border); margin-top: 10px; }
+.progress-fill { height: 100%; background: var(--c-accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 2px; padding: 8px 0 0; }
+.page-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 12px; align-items: start; }
+.span2 { grid-column: 1 / -1; }
+.checks { display: flex; flex-direction: column; gap: 2px; }
+.row-gap { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.column-gap { display: flex; flex-direction: column; gap: 10px; min-height: 100%; }
+.side-layout { display: flex; gap: 10px; flex: 1; min-height: 200px; }
+.side-buttons { display: flex; flex-direction: column; gap: 6px; width: 140px; flex: none; }
+.notice { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.group { border: 1px solid var(--c-border); display: flex; flex-direction: column; gap: 10px; padding: 10px 14px 12px; }
+.group legend { color: var(--c-muted); font-weight: 600; padding: 0 6px; }
+.align-end { align-self: end; }
+.summary-line { padding: 2px 0; }
+.settings-loading { flex: 1; }
+@media (max-width: 720px) {
+  .page-grid { grid-template-columns: 1fr; }
+  .settings-side { width: 190px; }
+}
+.settings-notice { padding: 0 28px; }
