@@ -6,6 +6,8 @@ GitHub release description.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-08
+
 ### Achaja rebuilt as one native Windows program
 
 - **No Python any more.** Achaja is now a single program (Tauri + Rust, the window in React): the wake-word listener, speech, the Google Cast speaker, the mail watcher, Home Assistant, project agents, the plan and background jobs all run natively. Starting is faster, there is no `.venv`, no portable Python and no console flicker.
@@ -246,7 +248,8 @@ GitHub release description.
 - **Fewer false wake-ups** — the wake word counts only in finished utterances, with a minimum confidence per word (`wake.wake_confidence`) and spoken on its own (`wake.wake_isolated`).
 - **"Słucham" / "Yes?" after the wake word** (`voice.wake_replies`) — played instantly from a trimmed clip in memory; recording starts only after it, so the reply never ends up in your prompt.
 
-[Unreleased]: https://github.com/Banzamel/AchajaVA/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/Banzamel/AchajaVA/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/Banzamel/AchajaVA/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/Banzamel/AchajaVA/releases/tag/v0.13.2
 [0.13.1]: https://github.com/Banzamel/AchajaVA/releases/tag/v0.13.1
 [0.13.0]: https://github.com/Banzamel/AchajaVA/releases/tag/v0.13.0
