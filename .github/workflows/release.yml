@@ -1,0 +1,64 @@
+name: Build & release
+
+# - every push to main and every pull request: the tests (TypeScript and the Rust core) and the
+#   window's build;
+# - a pushed version tag (v1.2.3): the signed Windows installer, published on the GitHub release
+#   of the tag with latest.json (the Tauri updater; the signature is inside it). The setup keeps
+#   the name AchajaSetup-<version>.exe, which the Python versions' updater looks for, so they
+#   update straight into this one. Only these two files are published.
+# Needs the repository secrets TAURI_SIGNING_PRIVATE_KEY (and TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+# when the key has one); they are read directly in this job.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npx vite build
+      - run: cargo test --manifest-path src-tauri/Cargo.toml -p achaja-core
+
+      # Releases: version check, signed installer, update manifest, GitHub Release.
+      - run: node scripts/version.cjs check
+        if: startsWith(github.ref, 'refs/tags/v')
+      - run: node scripts/version.cjs notes release-notes.md
+        if: startsWith(github.ref, 'refs/tags/v')
+      - run: npm run fetch-vosk
+        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Build the signed installer
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --bundles nsis --config '{"bundle":{"createUpdaterArtifacts":true}}'
+      - run: npm run release:manifests -- src-tauri/target/release/bundle/nsis
+        if: startsWith(github.ref, 'refs/tags/v')
+      # Files by name: release/ holds only these two.
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: Achaja ${{ github.ref_name }}
+          body_path: release-notes.md
+          files: |
+            release/AchajaSetup-*.exe
+            release/latest.json
