@@ -1,0 +1,42 @@
+[package]
+name = "achaja"
+version = "0.0.0"
+description = "Achaja - a hands-free voice assistant for Windows, built on Claude Code"
+authors = ["Rafał Polak (Banzamel)"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.90"
+publish = false
+
+[lib]
+name = "achaja_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+achaja-core = { path = "core" }
+tauri = { version = "2", features = ["tray-icon", "image-ico"] }
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-version = "0.1"
+winreg = "0.55"
+windows-sys = { version = "0.60", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Shell"] }
+
+[workspace]
+members = ["core"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "unwind"
+strip = true

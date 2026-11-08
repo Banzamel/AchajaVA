@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Achaja",
+  "mainBinaryName": "Achaja",
+  "version": "../package.json",
+  "identifier": "pl.banzamel.achaja",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Banzamel",
+    "homepage": "https://github.com/Banzamel/AchajaVA",
+    "copyright": "© Rafał Polak (Banzamel), MIT License",
+    "category": "Utility",
+    "shortDescription": "Achaja - voice assistant for Claude Code",
+    "longDescription": "A hands-free voice assistant for Windows, built on Claude Code.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "resources": {
+      "../resources/claude/": "resources/claude/",
+      "../resources/vosk/": "resources/vosk/"
+    },
+    "createUpdaterArtifacts": false,
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "./windows/hooks.nsh",
+        "languages": ["Polish", "English"],
+        "displayLanguageSelector": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhGOThGMTBCREU0RjJFNzEKUldSeExrL2VDL0dZajV6ZmpNWW5na1FpY2ZRZTNhcGdUVUtrZGpDR1lmaGkvY3JnV2R6OG9pd2QK",
+      "endpoints": ["https://github.com/Banzamel/AchajaVA/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}
