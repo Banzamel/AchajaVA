@@ -6,7 +6,7 @@ description: Porządki w skrzynce Gmail przez konektor Gmail z konta Claude — 
 # Porządki w Gmailu (konektor Claude)
 
 Działa **tylko**, gdy użytkownik ma połączony konektor Gmail na koncie Claude (claude.ai → Ustawienia → Konektory → Gmail). Narzędzia: `mcp__claude_ai_Gmail__*` (zwykle odroczone — wczytaj je jednym `ToolSearch`).
-Pomocnik: `& ".venv\Scripts\python.exe" -m achaja gmail <komenda>` (wypisywanie z list, zasady nadawców, zapis przeglądu).
+Pomocnik: `.\achaja.cmd gmail <komenda>` (wypisywanie z list, zasady nadawców, zapis przeglądu).
 
 ## 0. Sprawdź dostęp (zawsze najpierw)
 `ToolSearch` z `select:mcp__claude_ai_Gmail__search_threads,mcp__claude_ai_Gmail__get_thread,mcp__claude_ai_Gmail__get_message,mcp__claude_ai_Gmail__trash_thread,mcp__claude_ai_Gmail__mark_thread_spam,mcp__claude_ai_Gmail__label_thread,mcp__claude_ai_Gmail__unlabel_thread,mcp__claude_ai_Gmail__list_labels,mcp__claude_ai_Gmail__send_message`.

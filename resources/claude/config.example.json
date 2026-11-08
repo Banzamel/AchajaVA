@@ -25,7 +25,7 @@
   },
 
   "app": {
-    "_comment": "Okno aplikacji (app.py). / The app window (app.py).",
+    "_comment": "Okno aplikacji (Achaja.exe). / The app window (Achaja.exe).",
     "hide_console": true,
     "_hide_console": "Sesja Claude Code działa w ukrytej konsoli; pokażesz ją z menu Achaja. / Run the Claude Code session in a hidden console; show it from the Achaja menu.",
     "show_console_on_prompt": false,
@@ -56,7 +56,7 @@
       "headphones": {"type": "local", "device": "", "aliases": ["słuchawki", "sluchawki"]},
       "speaker": {"type": "cast", "name": "Speaker name", "host": "192.168.0.10", "aliases": ["głośnik", "glosnik", "google home"]}
     },
-    "_outputs": "type=local: 'device' to fragment nazwy wyjścia audio (puste = domyślne). type=cast: głośnik Google Cast — nazwę i adres znajdziesz komendą 'output.py discover'. / type=local: part of an output device name; type=cast: a Google Cast speaker (find it with 'output.py discover').",
+    "_outputs": "type=local: 'device' to fragment nazwy wyjścia audio (puste = domyślne). type=cast: głośnik Google Cast — nazwę i adres znajdziesz komendą 'achaja output discover'. / type=local: part of an output device name; type=cast: a Google Cast speaker (find it with 'achaja output discover').",
     "default_output": "headphones",
     "working_reminder_after_seconds": 30,
     "working_reminder_every_seconds": 60,
@@ -77,7 +77,7 @@
 
   "jobs": {
     "timeout_minutes": 30,
-    "_timeout_minutes": "Zadanie w tle (plan.py --job) dłuższe niż tyle minut jest przerywane. / A background task running longer than this is stopped."
+    "_timeout_minutes": "Zadanie w tle (plan add --job) dłuższe niż tyle minut jest przerywane. / A background task running longer than this is stopped."
   },
 
   "backup": {
@@ -85,7 +85,7 @@
     "every_hours": 24,
     "keep": 10,
     "folder": "",
-    "_folder": "Pusty = Dokumenty\\Achaja - kopie. Kopia zawiera hasła i tokeny - nie trzymaj jej w publicznym miejscu. / Empty = Documents\\Achaja - kopie. Backups hold passwords and tokens."
+    "_folder": "Pusty = <folder Achai>\\backups. Kopia zawiera hasła i tokeny - nie trzymaj jej w publicznym miejscu. / Empty = <Achaja folder>\\backups. Backups hold passwords and tokens."
   },
 
   "home_assistant": {
@@ -111,7 +111,7 @@
   },
 
   "mail": {
-    "_comment": "Opcjonalne: nasłuch skrzynek IMAP w tle (mail_watch.py startuje z Achają). Reklamy, spam i zagrożenia trafiają do folderów Achai, o ważnych wiadomościach Achaja mówi na głos. Każde konto może nadpisać dowolne ustawienie wspólne. / Optional: background IMAP watcher; ads, spam and threats go to Achaja's folders, important mail is announced aloud. Each account may override any shared setting.",
+    "_comment": "Opcjonalne: nasłuch skrzynek IMAP w tle (startuje z Achają). Reklamy, spam i zagrożenia trafiają do folderów Achai, o ważnych wiadomościach Achaja mówi na głos. Każde konto może nadpisać dowolne ustawienie wspólne. / Optional: background IMAP watcher; ads, spam and threats go to Achaja's folders, important mail is announced aloud. Each account may override any shared setting.",
     "enabled": false,
     "model": "haiku",
     "announce": ["important", "threat"],

@@ -5,7 +5,7 @@ description: Stan agentów projektów — kto teraz pracuje, ostatnie wyniki, pe
 
 # Stan agentów
 
-Python: `& ".venv\Scripts\python.exe" -m achaja agent <komenda>`
+Polecenie: `.\achaja.cmd agent <komenda>`
 
 | Pytanie użytkownika | Komenda |
 |---|---|

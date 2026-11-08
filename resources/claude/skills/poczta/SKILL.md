@@ -5,9 +5,9 @@ description: Poczta e-mail użytkownika — co nowego, raport, ważne maile, prz
 
 # Poczta
 
-Python: `& ".venv\Scripts\python.exe" -m achaja mail <komenda>`
+Polecenie: `.\achaja.cmd mail <komenda>`
 
-Nasłuch (`mail/watch.py`) działa w tle i sam segreguje pocztę na serwerze: `important` i `normal` zostają w skrzynce, `ad` / `spam` / `threat` znikają ze skrzynki odbiorczej (folder Achai usuwany po `delete_after_days` albo od razu przy `delete`). Nową pocztę ogłasza sam raportem (ważne z nadawcą i sednem, reszta liczbami), starą przegląda przy pierwszym starcie. Wiadomości nie są oznaczane jako przeczytane.
+Nasłuch ((`achaja mail watch`)) działa w tle i sam segreguje pocztę na serwerze: `important` i `normal` zostają w skrzynce, `ad` / `spam` / `threat` znikają ze skrzynki odbiorczej (folder Achai usuwany po `delete_after_days` albo od razu przy `delete`). Nową pocztę ogłasza sam raportem (ważne z nadawcą i sednem, reszta liczbami), starą przegląda przy pierwszym starcie. Wiadomości nie są oznaczane jako przeczytane.
 
 | Użytkownik mówi | Komenda |
 |---|---|

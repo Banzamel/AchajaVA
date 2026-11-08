@@ -1,0 +1,34 @@
+{
+  "language": "polish",
+  "voice": {
+    "enabled": true,
+    "mode": "tap"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|mcp__.*",
+        "hooks": [{ "type": "command", "command": "__ACHAJA_EXE__", "args": ["hook", "gate"], "timeout": 10 }]
+      },
+      {
+        "matcher": "mcp__home-assistant__.*",
+        "hooks": [{ "type": "command", "command": "__ACHAJA_EXE__", "args": ["hook", "home-guard"], "timeout": 20 }]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [{ "type": "command", "command": "__ACHAJA_EXE__", "args": ["hook", "event"], "timeout": 10 }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "__ACHAJA_EXE__", "args": ["hook", "stop"], "timeout": 15 }]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [{ "type": "command", "command": "__ACHAJA_EXE__", "args": ["hook", "event"], "timeout": 10 }]
+      }
+    ]
+  }
+}

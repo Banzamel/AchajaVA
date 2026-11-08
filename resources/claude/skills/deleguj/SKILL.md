@@ -5,12 +5,12 @@ description: Zleca zadanie agentowi innego projektu (osobny proces claude w fold
 
 # Delegowanie zadania agentowi projektu
 
-Python: `& ".venv\Scripts\python.exe" -m achaja agent ...`
+Polecenie: `.\achaja.cmd agent ...`
 
 ## 1. Ustal projekt
 Jeśli nazwa jest niepewna (dyktowanie przekręca nazwy), sprawdź listę:
 ```powershell
-& ".venv\Scripts\python.exe" -m achaja agent list
+.\achaja.cmd agent list
 ```
 `achaja agent` sam dopasowuje nazwy rozmyte i aliasy z `config.json`. Gdy dwa projekty pasują równie dobrze — zapytaj głosowo.
 
@@ -20,7 +20,7 @@ Przepisz dyktowane polecenie na **jasne, kompletne zlecenie** dla agenta (agent 
 ## 3. Uruchom agenta W TLE
 Wywołaj narzędziem PowerShell z `run_in_background: true`:
 ```powershell
-& ".venv\Scripts\python.exe" -m achaja agent run <projekt> --prompt-file "state\agents\zlecenie-<projekt>.txt"
+.\achaja.cmd agent run <projekt> --prompt-file "state\agents\zlecenie-<projekt>.txt"
 ```
 - Dodaj `--new`, gdy użytkownik chce zacząć z agentem od zera; bez tego agent kontynuuje poprzednią rozmowę w tym projekcie.
 - Postęp na żywo widać w zakładce „Agenci” okna Achai (w trybie konsolowym skrypt otwiera okno „Agent: <projekt>”), a na końcu skrypt wypisuje raport.
