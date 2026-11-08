@@ -1,0 +1,51 @@
+{
+  "name": "achaja",
+  "productName": "Achaja",
+  "version": "0.13.2",
+  "description": "A hands-free voice assistant for Windows, built on Claude Code: wake word, spoken answers, project agents, mail and Home Assistant.",
+  "type": "module",
+  "author": "Rafał Polak (Banzamel)",
+  "license": "MIT",
+  "homepage": "https://github.com/Banzamel/AchajaVA#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Banzamel/AchajaVA.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Banzamel/AchajaVA/issues"
+  },
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "start": "tauri dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test",
+    "fetch-vosk": "node scripts/fetch-vosk.mjs",
+    "version:check": "node scripts/version.cjs check",
+    "version": "node scripts/version.cjs stamp && git add CHANGELOG.md",
+    "release:patch": "npm version patch -m \"Release v%s\"",
+    "release:minor": "npm version minor -m \"Release v%s\"",
+    "release:major": "npm version major -m \"Release v%s\"",
+    "release:manifests": "node scripts/release-manifests.mjs",
+    "dist": "node scripts/docker-build.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
+    "@types/node": "^24.12.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "fflate": "^0.8.2",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.4",
+    "vitest": "^5.1.0"
+  }
+}

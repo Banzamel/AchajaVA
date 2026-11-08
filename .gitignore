@@ -1,19 +1,22 @@
-# środowisko i dane lokalne (nic z tego nie trafia do repozytorium)
-.venv/
-models/
-state/
-tools/
+# build output
+/node_modules/
+/dist/
+/release/
+/release-notes.md
+/src-tauri/target/
+/src-tauri/gen/
+/resources/vosk/
+
+# a local development data folder (ACHAJA_DATA) and leftovers of the Python version's checkout
+/dev-data/
+/config.json
+/.mcp.json
+/state/
+/models/
+/build/
+/.venv/
+/.claude/settings.json
+/.claude/settings.local.json
+/.claude/CLAUDE.local.md
 __pycache__/
-*.pyc
-
-# konfiguracja i sekrety użytkownika
-config.json
-.mcp.json
-.claude/settings.json
-.claude/settings.local.json
-.claude/CLAUDE.local.md
-
-# budowanie instalatora i Achaja.exe
-/Achaja.exe
-build/
-dist/
+.idea/
