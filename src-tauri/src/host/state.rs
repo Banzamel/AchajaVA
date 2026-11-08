@@ -104,7 +104,12 @@ impl AppState {
     }
 
     pub fn log(&self, text: &str) {
-        let line = format!("{} {text}", chrono::Local::now().format("%H:%M:%S"));
+        self.log_line(format!("{} {text}", chrono::Local::now().format("%H:%M:%S")));
+    }
+
+    /// A timestamped line for the Log tab and data/logs/achaja.log.
+    pub fn log_line(&self, line: String) {
+        achaja_core::logfile::append(&self.paths.logs(), &line);
         if let Ok(mut f) = self.feed.lock() {
             f.push("log", line);
         }

@@ -18,6 +18,7 @@ pub mod homeassistant;
 pub mod hooks;
 pub mod json;
 pub mod listener;
+pub mod logfile;
 pub mod mail;
 pub mod paths;
 pub mod phone;

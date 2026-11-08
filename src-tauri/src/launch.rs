@@ -65,6 +65,10 @@ pub fn setup(app: &mut App, start: &Start) -> tauri::Result<()> {
     main_window::create(&handle, &st, !start.minimized || !st.paths.config().exists())?;
     achaja_core::chat::trim(&st.paths, 400);
     if st.paths.config().exists() {
+        // Claude's workspace in data\.claude is complete even before the session starts
+        if let Err(e) = achaja_core::claude::workspace::write_files(&st.paths, &st.cfg()) {
+            st.log(&format!("BLAD przygotowania .claude: {e}"));
+        }
         host::listener::start(&st, start.resume);
     } else {
         // the first start after installing: the window opens on the settings wizard (the page

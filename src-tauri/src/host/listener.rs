@@ -17,11 +17,7 @@ pub fn start(st: &Arc<AppState>, resume: bool) {
     let paused = st.bridge().map(|b| b.paused()).unwrap_or(false);
     let hidden = st.cfg().bool_or("app.hide_console", true);
     let feed = st.clone();
-    let bridge = Arc::new(Bridge::new(hidden, paused, Arc::new(move |line: String| {
-        if let Ok(mut f) = feed.feed.lock() {
-            f.push("log", line);
-        }
-    })));
+    let bridge = Arc::new(Bridge::new(hidden, paused, Arc::new(move |line: String| feed.log_line(line))));
     if let Ok(mut b) = st.bridge.write() {
         *b = Some(bridge.clone());
     }

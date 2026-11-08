@@ -51,7 +51,10 @@ pub fn settings(paths: &Paths, cfg: &Config) -> Value {
     template
 }
 
-pub fn prepare(paths: &Paths, cfg: &Config) -> Result<()> {
+/// Everything of the workspace except the folder trust: Achaja's CLAUDE.md, skills and
+/// settings.json (the user's CLAUDE.local.md, settings.local.json and own skills stay as they are),
+/// and achaja.cmd.
+pub fn write_files(paths: &Paths, cfg: &Config) -> Result<()> {
     let dir = paths.claude_dir();
     std::fs::create_dir_all(&dir)?;
     copy_tree(&paths.bundled("claude/CLAUDE.md"), &dir.join("CLAUDE.md"))?;
@@ -64,6 +67,38 @@ pub fn prepare(paths: &Paths, cfg: &Config) -> Result<()> {
     if read_text(&paths.data.join("achaja.cmd")).as_deref() != Some(cmd.as_str()) {
         write_text(&paths.data.join("achaja.cmd"), &cmd)?;
     }
+    Ok(())
+}
+
+pub fn prepare(paths: &Paths, cfg: &Config) -> Result<()> {
+    write_files(paths, cfg)?;
     super::trust::trust(&paths.data)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn writes_the_templates_and_keeps_local_files() {
+        let (data, res) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        let r = res.path().join("claude");
+        std::fs::create_dir_all(r.join("skills").join("poczta")).unwrap();
+        std::fs::write(r.join("CLAUDE.md"), "rules").unwrap();
+        std::fs::write(r.join("skills").join("poczta").join("SKILL.md"), "mail").unwrap();
+        std::fs::write(r.join("settings.json"), r#"{"hooks": {"x": "__ACHAJA_EXE__ hook gate"}}"#).unwrap();
+        let p = Paths::at(data.path(), res.path());
+        let dir = p.claude_dir();
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("CLAUDE.local.md"), "mine").unwrap();
+        std::fs::write(dir.join("settings.local.json"), "{}").unwrap();
+        write_files(&p, &Config::new(Value::Null)).unwrap();
+        assert_eq!(std::fs::read_to_string(dir.join("CLAUDE.md")).unwrap(), "rules");
+        assert!(dir.join("skills").join("poczta").join("SKILL.md").is_file());
+        assert!(read_value(&dir.join("settings.json"))["hooks"]["x"].as_str().unwrap().ends_with(" hook gate"));
+        assert_eq!(std::fs::read_to_string(dir.join("CLAUDE.local.md")).unwrap(), "mine");
+        assert_eq!(std::fs::read_to_string(dir.join("settings.local.json")).unwrap(), "{}");
+        assert!(data.path().join("achaja.cmd").is_file());
+    }
 }

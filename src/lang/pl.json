@@ -53,12 +53,15 @@
   "st.paused": "Nasłuch wstrzymany",
   "st.start": "Uruchamiam…",
   "st.closed": "Sesja Claude została zamknięta",
+  "st.off": "Nasłuch wyłączony",
   "st.error": "Błąd nasłuchu — zobacz Dziennik",
 
   "hint.idle": "›  Powiedz „{wake}”, żeby zacząć mówić",
   "hint.rec": "›  Wyślij: „{end}”  ·  przerwij: „{cancel}”  ·  od nowa: „{clear}”",
   "hint.dialog": "Claude czeka na wybór — odpowiedz w zakładce Terminal",
   "hint.paused": "Nasłuch wstrzymany — kliknij „Wznów nasłuch”",
+  "hint.error": "Nasłuch nie działa — przyczyna jest w zakładce Dziennik",
+  "hint.off": "Nasłuch jest wyłączony (ACHAJA_NO_LISTENER)",
   "hint.start": "Uruchamiam sesję Claude…",
   "live.rec": "Mów… zakończ słowem „{end}”",
 

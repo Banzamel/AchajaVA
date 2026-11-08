@@ -33,6 +33,8 @@ describe('stateKey', () => {
     expect(liveText('busy', tick({ screen: screen({ activity: '✻ Pondering…' }) })).text).toBe('✻ Pondering…');
     expect(hintKind('wake')).toBe('rec');
     expect(hintKind('wait')).toBe('dialog');
-    expect(hintKind('error')).toBe('start');
+    expect(hintKind('error')).toBe('error');
+    expect(hintKind('off')).toBe('off');
+    expect(stateKey(tick({ state: 'off' }))).toBe('off');
   });
 });

@@ -62,8 +62,9 @@ The same rules in all of the owner's apps.
 
 ## Where the program writes
 
-Only into its own folder: `data\` (config.json, .mcp.json, .claude\, state\, models\, webview\ =
-the WebView2 profile via `data_directory`) and `backups\`. There is one window: no second webview, no
+Only into its own folder: `data\` (config.json, .mcp.json, .claude\, state\, models\, logs\ = the
+Log tab as `achaja.log` rotated at 1 MB, webview\ = the WebView2 profile via `data_directory`) and
+`backups\`. There is one window: no second webview, no
 second profile. Never into `%APPDATA%`, `%LOCALAPPDATA%` or the user profile — check every
 new plugin for `app_*_dir` use. Allowed outside: `%TEMP%` during install/update, the Start menu
 shortcuts, the `HKCU\...\Run` entry for "start with Windows". Claude Code's own files

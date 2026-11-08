@@ -53,12 +53,15 @@
   "st.paused": "Listening paused",
   "st.start": "Starting…",
   "st.closed": "The Claude session was closed",
+  "st.off": "Listening is off",
   "st.error": "Listener error — see the Log",
 
   "hint.idle": "›  Say “{wake}” to start talking",
   "hint.rec": "›  Send: “{end}”  ·  cancel: “{cancel}”  ·  start over: “{clear}”",
   "hint.dialog": "Claude is waiting for a choice — answer in the Terminal tab",
   "hint.paused": "Listening paused — click “Resume listening”",
+  "hint.error": "Listening does not work — the reason is in the Log tab",
+  "hint.off": "Listening is turned off (ACHAJA_NO_LISTENER)",
   "hint.start": "Starting the Claude session…",
   "live.rec": "Speak… finish with “{end}”",
 

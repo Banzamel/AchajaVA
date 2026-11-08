@@ -14,7 +14,7 @@ export class AvatarPainter {
   draw(ctx: CanvasRenderingContext2D, s: number, key: StateKey, color: string, p: Palette, now: number) {
     const c = s / 2;
     const bg = p.bg;
-    const faded = ['start', 'closed', 'error', 'paused'].includes(key);
+    const faded = ['start', 'closed', 'error', 'paused', 'off'].includes(key);
     const tone = (col: string) => (faded ? blend(col, p.grey, 0.6) : col);
     const neon = tone(p.accent);
     const state = tone(color);

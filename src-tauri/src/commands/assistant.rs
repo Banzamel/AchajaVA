@@ -81,7 +81,7 @@ pub fn tick(app: AppHandle, st: St, feed_after: u64, chat_offset: u64) -> Tick {
     let (work, work_since, work_kind) = state::work(&st.paths);
     let (chat, chat_offset) = chat::read_since(&st.paths, chat_offset);
     Tick {
-        state: bridge.as_ref().map(|b| b.state()).unwrap_or_else(|| if st.no_listener { "paused".into() } else { "start".into() }),
+        state: bridge.as_ref().map(|b| b.state()).unwrap_or_else(|| if st.no_listener { "off".into() } else { "start".into() }),
         paused: bridge.as_ref().is_some_and(|b| b.paused()),
         heard: bridge.as_ref().map(|b| b.heard()).unwrap_or_default(),
         problem: bridge.as_ref().and_then(|b| b.take_problem()),

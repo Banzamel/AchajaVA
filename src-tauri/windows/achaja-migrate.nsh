@@ -105,6 +105,24 @@ Function AchajaCopyDir
   Pop $R0
 FunctionEnd
 
+; The Python version's program files that its uninstaller leaves (generated __pycache__ folders,
+; the Python runtime, files it never listed): only these known names in its folder, never data\
+; or backups\. In: $R5 = the old folder.
+Function AchajaRemovePythonFiles
+  RMDir /r "$R5\src"
+  RMDir /r "$R5\setup"
+  RMDir /r "$R5\.venv"
+  RMDir /r "$R5\runtime"
+  Delete "$R5\start-achaja.cmd"
+  Delete "$R5\install.ps1"
+  Delete "$R5\requirements.txt"
+  Delete "$R5\config.example.json"
+  Delete "$R5\.mcp.example.json"
+  Delete "$R5\.gitignore"
+  Delete "$R5\README.md"
+  Delete "$R5\LICENSE"
+FunctionEnd
+
 ; The Python version: copy its data into data\, uninstall it, check it is really gone, and only
 ; then remove what it left (its settings and data, now copies in data\).
 Function AchajaMigratePython
@@ -164,9 +182,8 @@ Function AchajaMigratePython
   Delete "$R5\.mcp.json"
   RMDir /r "$R5\state"
   RMDir /r "$R5\models"
-  RMDir /r "$R5\.venv"
-  RMDir /r "$R5\runtime"
   RMDir /r "$R5\.claude"
+  Call AchajaRemovePythonFiles
   ${If} $R5 != $INSTDIR
     RMDir "$R5"
   ${EndIf}

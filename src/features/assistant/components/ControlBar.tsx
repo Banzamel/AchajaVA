@@ -1,5 +1,5 @@
 // Talk (or Send the recording), and Pause/Resume listening — while recording, Cancel takes the
-// pause button's place.
+// pause button's place. Without a listener (turned off) there is nothing to pause.
 import { useService, useStore } from '../../../shared/hooks/services.tsx';
 import { useT } from '../../../shared/i18n/useT.ts';
 import { Button } from '../../../shared/ui/Button.tsx';
@@ -18,7 +18,7 @@ export function ControlBar() {
       {rec ? (
         <Button onClick={() => svc.request('cancel')}>{t('btn.cancel')}</Button>
       ) : (
-        <Button onClick={() => svc.togglePause()}>{tick?.paused ? t('btn.resume') : t('btn.pause')}</Button>
+        <Button disabled={key === 'off'} onClick={() => svc.togglePause()}>{tick?.paused ? t('btn.resume') : t('btn.pause')}</Button>
       )}
     </div>
   );

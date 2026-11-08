@@ -25,13 +25,14 @@ FunctionEnd
 
 !macro NSIS_HOOK_PREINSTALL
   ; A silent install skips the pages, so the folder is checked here too. The template has already
-  ; created its default folder (SetOutPath); it is removed again when the install goes elsewhere.
+  ; created its default folder with SetOutPath, which also made it the current directory: the
+  ; new folder becomes current first, otherwise Windows refuses to remove the empty default one.
   StrCpy $AchajaOrigDir $INSTDIR
   Call AchajaFixInstDir
+  SetOutPath $INSTDIR
   ${If} $AchajaOrigDir != $INSTDIR
     RMDir $AchajaOrigDir
   ${EndIf}
-  SetOutPath $INSTDIR
   Call AchajaMigratePython
   SetOutPath $INSTDIR
 !macroend

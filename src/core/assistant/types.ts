@@ -47,12 +47,12 @@ export interface Tick {
   tray: boolean;
 }
 
-export type StateKey = 'idle' | 'wake' | 'rec' | 'busy' | 'wait' | 'dialog' | 'speak' | 'paused' | 'start' | 'closed' | 'error';
+export type StateKey = 'idle' | 'wake' | 'rec' | 'busy' | 'wait' | 'dialog' | 'speak' | 'paused' | 'start' | 'closed' | 'error' | 'off';
 
 // The palette colour of each state (avatar, band, status line).
 export const STATE_COLORS: Record<StateKey, string> = {
   idle: 'green', wake: 'red', rec: 'red', busy: 'violet', wait: 'orange', dialog: 'orange',
-  speak: 'cyan', paused: 'grey', start: 'grey', closed: 'grey', error: 'red',
+  speak: 'cyan', paused: 'grey', start: 'grey', closed: 'grey', error: 'red', off: 'grey',
 };
 
 export interface Message {

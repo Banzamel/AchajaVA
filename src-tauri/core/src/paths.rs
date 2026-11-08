@@ -48,6 +48,9 @@ impl Paths {
     pub fn agents(&self) -> PathBuf {
         self.state().join("agents")
     }
+    pub fn logs(&self) -> PathBuf {
+        self.data.join("logs")
+    }
     pub fn models(&self) -> PathBuf {
         self.data.join("models")
     }
@@ -66,9 +69,11 @@ impl Paths {
     pub fn ha_token(&self) -> PathBuf {
         self.state_file("ha_token.txt")
     }
-    /// Rules, skills and templates shipped with the program.
+    /// Rules, skills, templates and libvosk shipped with the program: "vosk/libvosk.dll" ->
+    /// resources\vosk\libvosk.dll, joined part by part (Windows' DLL search with
+    /// LOAD_WITH_ALTERED_SEARCH_PATH fails on a "/" in the path).
     pub fn bundled(&self, rel: &str) -> PathBuf {
-        self.resources.join(rel)
+        rel.split(['/', '\\']).filter(|p| !p.is_empty()).fold(self.resources.clone(), |acc, part| acc.join(part))
     }
 }
 
@@ -89,4 +94,18 @@ pub fn ensure_dirs(p: &Paths) -> std::io::Result<()> {
             .map_err(|e| std::io::Error::new(e.kind(), format!("{}: {e}", dir.display())))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_paths_have_no_forward_slash() {
+        let p = Paths::at(Path::new("/data"), Path::new("/res"));
+        let sep = std::path::MAIN_SEPARATOR;
+        let want = format!("/res{sep}vosk{sep}libvosk.dll");
+        assert_eq!(p.bundled("vosk/libvosk.dll").to_string_lossy(), want);
+        assert_eq!(p.bundled("vosk\\libvosk.dll").to_string_lossy(), want);
+    }
 }

@@ -8,7 +8,7 @@ export function isWaiting(t: Pick<Tick, 'work' | 'work_kind'>): boolean {
 
 export function stateKey(t: Tick): StateKey {
   const s = t.screen;
-  if (t.state === 'closed' || t.state === 'error' || t.state === 'start') return t.state;
+  if (t.state === 'closed' || t.state === 'error' || t.state === 'start' || t.state === 'off') return t.state;
   if (t.state === 'recording' || (s && s.rec)) return 'rec';
   if (t.state === 'wake') return 'wake';
   if (isWaiting(t)) return 'wait';
@@ -35,10 +35,11 @@ export function liveText(key: StateKey, t: Tick): { kind: 'dictation' | 'activit
 }
 
 // Which voice commands the hint chip shows now.
-export function hintKind(key: StateKey): 'rec' | 'dialog' | 'paused' | 'start' | 'idle' {
+export function hintKind(key: StateKey): 'rec' | 'dialog' | 'paused' | 'start' | 'error' | 'off' | 'idle' {
   if (key === 'rec' || key === 'wake') return 'rec';
   if (key === 'wait' || key === 'dialog') return 'dialog';
   if (key === 'paused') return 'paused';
-  if (key === 'start' || key === 'closed' || key === 'error') return 'start';
+  if (key === 'error' || key === 'off') return key;
+  if (key === 'start' || key === 'closed') return 'start';
   return 'idle';
 }
