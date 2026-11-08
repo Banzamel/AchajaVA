@@ -29,7 +29,7 @@ export function useMenuActions(svc: AssistantService): (MenuItem | null)[] {
     { icon: '＋', label: t('menu.new'), run: () => svc.request('clear') },
     { icon: '↻', label: t('menu.repeat'), run: () => void commands.repeatLast() },
     null,
-    { icon: '⚙', label: t('menu.settings'), run: () => void commands.openSettings() },
+    { icon: '⚙', label: t('menu.settings'), run: () => svc.setTab('settings') },
     { icon: '✎', label: t('menu.edit_config'), run: () => void commands.editConfig() },
     null,
     { icon: '▣', label: t('menu.console'), run: () => void commands.toggleConsole() },

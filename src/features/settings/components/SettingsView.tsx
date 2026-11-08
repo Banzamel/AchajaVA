@@ -1,7 +1,7 @@
-// The settings window. Editing existing settings: sections in a sidebar, "Save changes" from any
-// of them, the window stays open. First run: steps one by one, the summary, then Save closes it.
-import { useState } from 'react';
-import { commands } from '../../../platform/index.ts';
+// The Settings view of the main window. Editing existing settings: sections (a sidebar, or a strip
+// above the page in a narrow window), "Save changes" from any of them. First run: steps one by one,
+// the summary, then Save returns to the conversation and the listener starts.
+import { useEffect, useState } from 'react';
 import { useService, useStore } from '../../../shared/hooks/services.tsx';
 import { useT } from '../../../shared/i18n/useT.ts';
 import { Button } from '../../../shared/ui/Button.tsx';
@@ -13,16 +13,18 @@ import { PageBody } from './PageBody.tsx';
 import { Sidebar } from './Sidebar.tsx';
 import { WizardHead } from './WizardHead.tsx';
 
-export function SettingsWindow() {
+export function SettingsView({ onClose }: { onClose: (saved: boolean) => void }) {
   const t = useT();
   const svc = useService(SettingsService);
   const modal = useService(ModalService);
   const { form, index, status } = useStore(svc.store);
   const [lang, setLang] = useState(false);
+  useEffect(() => {
+    void svc.load();
+  }, [svc]);
   if (!form) return <div className="settings-loading" />;
   const list = svc.pages();
-  const key = list[index];
-  const close = () => void commands.closeSettings();
+  const key = list[index] ?? 'general';
   const save = async () => {
     if (!(await svc.save())) return;
     if (form.editing) {
@@ -30,7 +32,7 @@ export function SettingsWindow() {
       window.setTimeout(() => svc.setStatus(''), 4000);
     } else {
       await modal.alert(t('set.saved'), t('btn.ok'));
-      close();
+      onClose(true);
     }
   };
   if (form.editing) {
@@ -45,7 +47,7 @@ export function SettingsWindow() {
           <div className="settings-notice"><ModelNotice /></div>
           <PageBody page={key} />
           <div className="settings-nav">
-            <Button onClick={close}>{t('set.close')}</Button>
+            <Button onClick={() => onClose(false)}>{t('set.close')}</Button>
             <span className="grow" />
             <span className="muted">{status}</span>
             <Button variant="accent" onClick={() => void save()}>{t('set.save_changes')}</Button>
@@ -62,7 +64,7 @@ export function SettingsWindow() {
       <div className="settings-notice"><ModelNotice /></div>
       <PageBody page={key} />
       <div className="settings-nav">
-        <Button onClick={close}>{t('set.cancel')}</Button>
+        <Button onClick={() => onClose(false)}>{t('set.cancel')}</Button>
         <span className="grow" />
         <Button disabled={index === 0} onClick={() => svc.go(index - 1)}>{t('set.back')}</Button>
         <Button variant="accent" onClick={() => (last ? void save() : svc.go(index + 1))}>{last ? t('set.save') : `${t('set.next')}  ›`}</Button>

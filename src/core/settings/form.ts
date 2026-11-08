@@ -1,4 +1,4 @@
-// Pure helpers of the settings window: its pages, the phone notification mode, a new account,
+// Pure helpers of the Settings view: its pages, the phone notification mode, a new account,
 // the port that follows the encryption, and the summary of the first-run wizard.
 import type { AccountForm, PageKey, SettingsForm } from './types.ts';
 

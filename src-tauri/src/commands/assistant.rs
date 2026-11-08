@@ -25,6 +25,10 @@ pub struct AppInfo {
     theme: String,
     hint_words: HintWords,
     data: String,
+    /// No config.json yet: the page starts on the settings wizard.
+    first_run: bool,
+    /// Started with --settings: the page starts on Settings (once).
+    open_settings: bool,
 }
 
 #[derive(Serialize)]
@@ -61,6 +65,8 @@ pub fn app_info(st: St) -> AppInfo {
         theme: cfg.str_or("app.theme", "auto"),
         hint_words: HintWords { end: cfg.first("wake.end", "wykonaj"), cancel: cfg.first("wake.cancel", "anuluj"), clear: cfg.first("wake.clear", "nowa rozmowa") },
         data: st.paths.data.to_string_lossy().into_owned(),
+        first_run: st.first_run.load(Ordering::Relaxed),
+        open_settings: st.open_settings.swap(false, Ordering::Relaxed),
     }
 }
 

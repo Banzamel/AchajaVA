@@ -30,7 +30,6 @@ pub fn run(args: &[String]) {
             claude::claude_delete, claude::claude_clean_preview, claude::claude_clean, claude::claude_open_dir,
             settings::settings_load, settings::settings_save, settings::audio_devices, settings::cast_discover,
             settings::mail_test, settings::ha_test, settings::ha_phones, settings::model_status, settings::model_download,
-            settings::open_settings, settings::close_settings,
             system::edit_config, system::backup_now, system::open_backups, system::open_url,
             system::update_check, system::update_install,
         ])

@@ -1,4 +1,4 @@
-/* The settings window: sidebar sections when editing, steps with chips on the first run. */
+/* The Settings view: sidebar sections when editing, steps with chips on the first run. */
 .settings-root { padding: 0; }
 .settings { flex: 1; min-height: 0; display: flex; }
 .settings.wizard { flex-direction: column; }
@@ -41,3 +41,16 @@
   .settings-side { width: 190px; }
 }
 .settings-notice { padding: 0 28px; }
+/* Achaja's window is narrow by default: the sections become a strip above the page. */
+@media (max-width: 760px) {
+  .settings.editing { flex-direction: column; }
+  .settings-side { width: auto; flex-direction: row; flex-wrap: wrap; gap: 2px; padding: 8px 10px; }
+  .settings-side .side-title, .settings-side .side-band, .settings-side .side-sep { display: none; }
+  .side-item { padding: 5px 10px 5px 4px; font-size: 13px; }
+  .side-icon { width: 20px; font-size: 14px; }
+  .settings-head { padding: 12px 18px 2px; }
+  .settings-body { padding: 10px 18px 4px; }
+  .settings-nav { padding: 10px 18px 14px; }
+  .settings-notice { padding: 0 18px; }
+  .wizard-head { padding: 14px 18px 0; }
+}

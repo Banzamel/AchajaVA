@@ -1,4 +1,5 @@
-//! The icon in the notification area: show the window, talk, pause or resume listening, quit.
+//! The icon in the notification area: show the window, talk, pause or resume listening, settings,
+//! quit.
 //! The labels come from the window (translated) through set_texts.
 
 use std::sync::Arc;
@@ -18,6 +19,7 @@ pub struct Texts {
     pub talk: String,
     pub pause: String,
     pub resume: String,
+    pub settings: String,
     pub quit: String,
 }
 
@@ -25,13 +27,14 @@ fn menu(app: &AppHandle, t: &Texts, paused: bool) -> tauri::Result<Menu<tauri::W
     let show = MenuItem::with_id(app, "show", &t.show, true, None::<&str>)?;
     let talk = MenuItem::with_id(app, "talk", &t.talk, true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", if paused { &t.resume } else { &t.pause }, true, None::<&str>)?;
+    let settings = MenuItem::with_id(app, "settings", &t.settings, true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", &t.quit, true, None::<&str>)?;
-    Menu::with_items(app, &[&show, &talk, &pause, &sep, &quit])
+    Menu::with_items(app, &[&show, &talk, &pause, &settings, &sep, &quit])
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
-    let t = Texts { show: "Pokaż okno".into(), talk: "Mów".into(), pause: "Wstrzymaj nasłuch".into(), resume: "Wznów nasłuch".into(), quit: "Zakończ".into() };
+    let t = Texts { show: "Pokaż okno".into(), talk: "Mów".into(), pause: "Wstrzymaj nasłuch".into(), resume: "Wznów nasłuch".into(), settings: "Ustawienia".into(), quit: "Zakończ".into() };
     let mut b = TrayIconBuilder::with_id(ID).tooltip("Achaja").menu(&menu(app, &t, false)?).show_menu_on_left_click(false);
     if let Some(icon) = app.default_window_icon() {
         b = b.icon(icon.clone());
@@ -46,6 +49,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                     b.paused.store(!b.paused(), std::sync::atomic::Ordering::Relaxed);
                 }
             }
+            "settings" => crate::window::open_settings(app),
             "quit" => crate::commands::assistant::quit_app(app, &st, false),
             _ => {}
         }

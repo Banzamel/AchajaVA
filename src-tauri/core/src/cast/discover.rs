@@ -1,4 +1,4 @@
-//! Finding Cast speakers on the network (mDNS "_googlecast._tcp"), for the settings window and
+//! Finding Cast speakers on the network (mDNS "_googlecast._tcp"), for the Settings view and
 //! `achaja output discover`.
 
 use std::time::{Duration, Instant};

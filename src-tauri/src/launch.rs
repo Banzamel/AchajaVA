@@ -1,8 +1,8 @@
 //! Start-up: the data folder in the install folder (written there or nowhere), one running
 //! Achaja (a second start shows the first one's window or settings), the data a Python version
-//! left in the install folder, then the windows, the tray and the assistant's threads.
+//! left in the install folder, then the window, the tray and the assistant's threads.
 //!   Achaja.exe              the window (--minimized: in the tray; --continue: resume the conversation)
-//!   Achaja.exe --settings   the settings window (of the running Achaja, or on its own)
+//!   Achaja.exe --settings   the window on its Settings view (of the running Achaja, or a new start)
 
 use std::sync::Arc;
 
@@ -14,7 +14,7 @@ use serde_json::json;
 use tauri::App;
 
 use crate::host::{self, AppState};
-use crate::window::{fatal, main_window, settings_window};
+use crate::window::{fatal, main_window};
 
 pub struct Start {
     pub state: Arc<AppState>,
@@ -44,37 +44,32 @@ pub fn prepare(args: &[String]) -> Option<Start> {
         state::write(&p, if settings { SETTINGS_FLAG } else { SHOW_FLAG }, &json!({ "at": now() }));
         return None;
     }
-    // the settings window alone (the main window is not running) has its own WebView2 profile,
-    // so a window started meanwhile does not share it
-    if !settings && !single_instance("AchajaListener") {
+    if !single_instance("AchajaListener") {
         fatal::show("Achaja już działa. / Achaja is already running.");
         return None;
     }
-    if !settings {
-        state::write(&p, APP, &json!({ "pid": std::process::id() }));
-    }
+    state::write(&p, APP, &json!({ "pid": std::process::id() }));
+    // a settings window of an earlier test build had its own WebView2 profile
+    let _ = std::fs::remove_dir_all(p.data.join("webview-settings"));
     let cfg = achaja_core::config::peek(&p);
-    Some(Start { state: Arc::new(AppState::new(p, cfg, settings)), minimized: has("--minimized"), resume: has("--continue") })
+    Some(Start { state: Arc::new(AppState::new(p, cfg, settings)), minimized: has("--minimized") && !settings, resume: has("--continue") })
 }
 
 pub fn setup(app: &mut App, start: &Start) -> tauri::Result<()> {
     let handle = app.handle().clone();
     let st = start.state.clone();
-    if st.settings_only {
-        settings_window::open(&handle, &st)?;
-        return Ok(());
-    }
     if st.cfg().bool_or("app.tray", true) {
         crate::tray::create(&handle)?;
     }
-    main_window::create(&handle, &st, !start.minimized)?;
+    // the first start (no config.json yet) shows the wizard even when started --minimized
+    main_window::create(&handle, &st, !start.minimized || !st.paths.config().exists())?;
     achaja_core::chat::trim(&st.paths, 400);
     if st.paths.config().exists() {
         host::listener::start(&st, start.resume);
     } else {
-        // the first start after installing: the settings wizard; saving it starts the listener
+        // the first start after installing: the window opens on the settings wizard (the page
+        // asks app_info); saving it writes config.json and the supervisor starts the listener
         st.first_run.store(true, std::sync::atomic::Ordering::Relaxed);
-        settings_window::open(&handle, &st)?;
     }
     host::screen::spawn(st.clone());
     host::supervisor::spawn(handle, st);

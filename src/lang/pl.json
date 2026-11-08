@@ -10,6 +10,7 @@
   "tab.agents": "Agenci",
   "tab.plan": "Plan",
   "tab.claude": "Claude",
+  "tab.settings": "Ustawienia",
   "tab.log": "Dziennik",
 
   "btn.talk": "Mów",
@@ -69,6 +70,7 @@
   "chat.empty_title": "Cześć, tu Achaja",
   "chat.empty": "Powiedz słowo wybudzenia albo napisz wiadomość poniżej.",
 
+  "note.setup_needed": "Achaja nie jest jeszcze skonfigurowana — otwórz Ustawienia (⚙), żeby zacząć.",
   "note.config_changed": "Zmieniono ustawienia — uruchamiam nasłuch ponownie.",
   "note.st_closed": "Sesja Claude została zamknięta — uruchamiam ją ponownie.",
   "note.wait_note": "Claude pyta o zgodę — otworzyłam konsolę, odpowiedz tam albo w zakładce Terminal.",
@@ -142,7 +144,7 @@
   "set.save_error": "Nie udało się zapisać: {error}",
   "set.lang_title": "Język Achai",
   "set.lang_sub": "Język rozmowy, słowa sterujące (wybudzenie, „wykonaj”) i głos. Zmiana zapisuje się od razu, a nasłuch uruchamia się ponownie.",
-  "set.lang_saved": "✓ Zapisano język — okno ustawień zmieni język po ponownym otwarciu",
+  "set.lang_saved": "✓ Zapisano język — okno Achai mówi już nowym językiem",
   "set.lang_missing": "Brak modelu mowy dla tego języka ({model}). Pobierz go (ok. 50 MB), żeby zmienić język.",
   "set.download": "Pobierz model",
   "set.downloading": "Pobieram model… {pct}%",

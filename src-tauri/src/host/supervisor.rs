@@ -1,5 +1,5 @@
 //! A thread watching what happens around the window: another start asking to show it (or its
-//! settings), config.json saved by the settings window or an editor (the listener restarts), the
+//! settings), config.json saved by the Settings view or an editor (the listener restarts), the
 //! console window when Claude asks for approval, a closed Claude session (it comes back with the
 //! same conversation), an update asked for by voice, and the update checks.
 
@@ -40,7 +40,7 @@ fn tick(app: &AppHandle, st: &Arc<AppState>, m: &mut Memory) {
     }
     if p.state_file(SETTINGS_FLAG).exists() {
         state::clear(p, SETTINGS_FLAG);
-        let _ = crate::window::settings_window::open(app, st);
+        crate::window::open_settings(app);
     }
     let mt = mtime(&p.config());
     if mt != m.config_mtime {
@@ -100,7 +100,7 @@ fn tick(app: &AppHandle, st: &Arc<AppState>, m: &mut Memory) {
     st.visible.store(crate::window::main_window::is_visible(app), Ordering::Relaxed);
 }
 
-/// The settings window turns mail on or off: the watcher follows.
+/// Settings turn mail on or off: the watcher follows.
 fn restart_mail(st: &AppState, cfg: &achaja_core::config::Config) {
     let p = &st.paths;
     achaja_core::mail::stop_watch(p);

@@ -24,6 +24,7 @@
 .tab { border: 0; background: transparent; color: var(--c-muted); font: 600 14px "Segoe UI", sans-serif; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
 .tab:hover { background: var(--c-hover); color: var(--c-text); }
 .tab.selected { background: var(--c-accent-soft); color: var(--c-accent-text); }
+.tab.gear { font-size: 16px; padding: 3px 9px; }
 .tab-page { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .key-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 .text-panel { margin: 0; flex: 1; min-height: 0; overflow: auto; white-space: pre-wrap; word-break: break-word; font-size: 12.5px; user-select: text; font-family: inherit; }

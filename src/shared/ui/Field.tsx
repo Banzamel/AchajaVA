@@ -1,4 +1,4 @@
-// A labelled text field (the label above it, like the settings window always had).
+// A labelled text field (the label above it, like the settings always had).
 import type { InputHTMLAttributes } from 'react';
 
 interface Props extends Omit<InputHTMLAttributes<HTMLInputElement>, 'onChange'> {

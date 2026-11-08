@@ -1,4 +1,4 @@
-// The settings window's state: the form (from config.json, without secrets), the current page,
+// The Settings view's state: the form (from config.json, without secrets), the current page,
 // the audio devices, and saving. A language whose speech model is missing is offered for
 // download first (the listener could not start without it).
 import { pages } from '../../core/settings/form.ts';
@@ -18,11 +18,19 @@ export interface SettingsState {
 export class SettingsService {
   readonly store = new Store<SettingsState>({ form: null, index: 0, devices: { input: [], output: [] }, status: '', missingModel: null, downloadPct: null });
 
+  private listening = false;
+
+  // onSaved: the window takes the saved language and theme at once.
+  constructor(private readonly onSaved: () => Promise<void> = async () => {}) {}
+
+  // Fresh from config.json each time the view opens (an editor may have changed it meanwhile).
   async load() {
     const form = await commands.settingsLoad();
-    this.store.set({ form });
+    this.store.set({ form, index: 0, status: '' });
     void this.checkModel(form.language);
     void commands.audioDevices().then((devices) => this.store.set({ devices }));
+    if (this.listening) return;
+    this.listening = true;
     await onEvent<number>('achaja://model-progress', (f) => this.store.set({ downloadPct: Math.round(f * 100) }));
   }
 
@@ -71,6 +79,7 @@ export class SettingsService {
     if (!form) return false;
     try {
       await commands.settingsSave(form);
+      await this.onSaved().catch(() => undefined);
       return true;
     } catch (e) {
       const msg = errorMessage(e);

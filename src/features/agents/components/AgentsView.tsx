@@ -46,7 +46,7 @@ export function AgentsView({ onNote }: { onNote: (text: string) => void }) {
           <span className="grow" />
           <Button variant="key" disabled={!row} onClick={() => void action()}>{row?.working ? t('agents.stop') : t('agents.remove')}</Button>
         </div>
-        <TextPanel text={name ? log : t('agents.none')} mono />
+        <TextPanel text={name ? log : t('agents.none')} mono className="term" />
       </div>
     </div>
   );

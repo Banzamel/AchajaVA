@@ -61,7 +61,9 @@ pub struct AppState {
     pub quitting: AtomicBool,
     pub last_start: Mutex<f64>,
     pub update: Mutex<UpdateView>,
-    pub settings_only: bool,
+    /// Started with --settings or asked for them from the tray: the window opens on Settings
+    /// (taken once by the page).
+    pub open_settings: AtomicBool,
     /// No config.json yet: the first-run settings wizard comes first, the listener after it.
     pub first_run: AtomicBool,
     /// The app runs without the listener (ACHAJA_NO_LISTENER, for tests of the window).
@@ -69,7 +71,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(paths: Paths, cfg: Config, settings_only: bool) -> Self {
+    pub fn new(paths: Paths, cfg: Config, open_settings: bool) -> Self {
         AppState {
             paths,
             cfg: RwLock::new(cfg),
@@ -82,7 +84,7 @@ impl AppState {
             quitting: AtomicBool::new(false),
             last_start: Mutex::new(0.0),
             update: Mutex::new(UpdateView::default()),
-            settings_only,
+            open_settings: AtomicBool::new(open_settings),
             first_run: AtomicBool::new(false),
             no_listener: std::env::var_os("ACHAJA_NO_LISTENER").is_some(),
         }

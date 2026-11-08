@@ -13,7 +13,7 @@ The same rules in all of the owner's apps.
 2. **One responsibility per file.** One React component per file. A file is named after its main
    export: `PascalCase.tsx` for components and classes, `camelCase.ts` for modules.
 3. **Folders:**
-   - `src/app/` — entry (`main.tsx`: index.html is the main window, `#settings` the settings window),
+   - `src/app/` — entry (`main.tsx`: index.html is Achaja's one window; Settings are a view in it),
      service wiring, start-up, the title bar, tabs
    - `src/features/<feature>/` — `components/`, `hooks/`, services, `index.ts` public API:
      `assistant` (polling, header, avatar, controls, menu), `chat`, `terminal`, `agents`, `plan`,
@@ -63,8 +63,8 @@ The same rules in all of the owner's apps.
 ## Where the program writes
 
 Only into its own folder: `data\` (config.json, .mcp.json, .claude\, state\, models\, webview\ =
-the WebView2 profile via `data_directory`, `webview-settings\` for a settings window started
-alone) and `backups\`. Never into `%APPDATA%`, `%LOCALAPPDATA%` or the user profile — check every
+the WebView2 profile via `data_directory`) and `backups\`. There is one window: no second webview, no
+second profile. Never into `%APPDATA%`, `%LOCALAPPDATA%` or the user profile — check every
 new plugin for `app_*_dir` use. Allowed outside: `%TEMP%` during install/update, the Start menu
 shortcuts, the `HKCU\...\Run` entry for "start with Windows". Claude Code's own files
 (`~/.claude`, `~/.claude.json`: the folder trust and the Claude tab's tidying) belong to Claude Code.

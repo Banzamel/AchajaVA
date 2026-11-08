@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Achaja's windows (the main window and the settings window): their own title bar, events from the native side, the folder picker, links and opening folders.",
-  "windows": ["main", "settings"],
+  "description": "Achaja's window (settings are a view inside it): its own title bar, events from the native side, the folder picker, links and opening folders.",
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-show",

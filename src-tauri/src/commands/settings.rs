@@ -1,4 +1,4 @@
-//! The settings window: the form, saving it, and its helpers — audio devices, Cast speakers,
+//! The Settings view: the form, saving it, and its helpers — audio devices, Cast speakers,
 //! testing a mail account or Home Assistant, phones with the HA app, the speech model.
 
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use achaja_core::settings::form::AccountForm;
 use achaja_core::settings::{self, SettingsForm};
 use achaja_core::voice::devices::DeviceNames;
 use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 
 use crate::host::AppState;
 
@@ -92,16 +92,3 @@ pub async fn model_download(app: AppHandle, st: St<'_>, name: String) -> Result<
     achaja_core::stt::download_model(&st.paths, &name, &progress).await?;
     Ok(())
 }
-
-#[tauri::command]
-pub fn open_settings(app: AppHandle, st: St) -> Result<()> {
-    crate::window::settings_window::open(&app, &st).map_err(|e| AppError::msg(e.to_string()))
-}
-
-#[tauri::command]
-pub fn close_settings(app: AppHandle) {
-    if let Some(w) = app.get_webview_window(crate::window::settings_window::LABEL) {
-        let _ = w.close();
-    }
-}
-

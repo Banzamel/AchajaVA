@@ -1,14 +1,15 @@
 // The main window's assistant state: polls the native side every 300 ms (the listener, the Claude
 // console, the session's work, new log lines, notes and chat messages), turns it into the shown
 // state, and opens the Terminal tab (with a note and a spoken hint) when Claude waits for a choice.
+// Settings are a view of this window too: the first run and `--settings` start on it.
 import { appendMessages, toMessage } from '../../core/assistant/messages.ts';
 import { stateKey } from '../../core/assistant/stateKey.ts';
 import type { Message, StateKey, Tick } from '../../core/assistant/types.ts';
-import { commands, type AppInfo } from '../../platform/index.ts';
+import { commands, onEvent, type AppInfo } from '../../platform/index.ts';
 import type { I18nService } from '../../shared/i18n/I18nService.ts';
 import { Store } from '../../shared/lib/Store.ts';
 
-export type TabKey = 'chat' | 'term' | 'agents' | 'plan' | 'claude' | 'log';
+export type TabKey = 'chat' | 'term' | 'agents' | 'plan' | 'claude' | 'log' | 'settings';
 
 export interface AssistantState {
   info: AppInfo | null;
@@ -30,11 +31,12 @@ export class AssistantService {
 
   constructor(private readonly i18n: I18nService) {}
 
-  async start() {
-    const info = await commands.appInfo();
+  async start(info: AppInfo) {
     const [lines, offset] = await commands.chatHistory();
     this.chatOffset = offset;
     this.store.set({ info, messages: appendMessages([], lines.map(toMessage)) });
+    if (info.first_run || info.open_settings) this.setTab('settings');
+    await onEvent('achaja://open-settings', () => this.setTab('settings'));
     this.timer = window.setInterval(() => void this.poll(), POLL_MS);
   }
 

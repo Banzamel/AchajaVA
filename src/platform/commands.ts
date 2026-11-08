@@ -11,6 +11,8 @@ export interface AppInfo {
   theme: string;
   hint_words: { end: string; cancel: string; clear: string };
   data: string;
+  first_run: boolean;
+  open_settings: boolean;
 }
 export interface AgentRow { name: string; working: boolean; minutes: number; finished_at: number }
 export interface Account { email: string; name: string; org: string; plan: string; logged_in: boolean }
@@ -19,7 +21,7 @@ export interface Project { id: string; path: string; size: number; sessions: num
 export interface Session { id: string; title: string; messages: number; size: number; mtime: number; active: boolean; current: boolean; agent: string }
 export interface Devices { input: string[]; output: string[] }
 export interface Speaker { name: string; host: string; model: string }
-export interface TrayTexts { show: string; talk: string; pause: string; resume: string; quit: string }
+export interface TrayTexts { show: string; talk: string; pause: string; resume: string; settings: string; quit: string }
 
 export const commands = {
   appInfo: () => invoke<AppInfo>('app_info'),
@@ -59,8 +61,6 @@ export const commands = {
   haPhones: (url: string, token: string) => invoke<string[]>('ha_phones', { url, token }),
   modelStatus: (language: string) => invoke<string | null>('model_status', { language }),
   modelDownload: (name: string) => invoke<void>('model_download', { name }),
-  openSettings: () => invoke<void>('open_settings'),
-  closeSettings: () => invoke<void>('close_settings'),
   editConfig: () => invoke<void>('edit_config'),
   backupNow: () => invoke<[string, number]>('backup_now'),
   openBackups: () => invoke<void>('open_backups'),

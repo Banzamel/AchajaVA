@@ -6,7 +6,7 @@
 
 Say the wake word, speak your request, finish with the end word — and listen to the answer. *Achaja* runs [Claude Code](https://claude.com/claude-code) for you in a hidden window: it runs commands on your PC, **hands work to agents in your own projects** and tells you what they did, keeps your **mailbox clean**, and controls your **home** through Home Assistant. You never have to look at the screen.
 
-**Setup takes about 10 minutes:** download the installer, click through a settings window, say "Achaja".
+**Setup takes about 10 minutes:** download the installer, click through the settings, say "Achaja".
 
 ⭐ **[Star it](https://github.com/Banzamel/AchajaVA)** to follow new releases — installed copies update themselves.
 
@@ -22,7 +22,7 @@ Yes, if you want to talk to your computer the way you would talk to an assistant
 
 1. Download **`AchajaSetup-<version>.exe`** from [Releases](https://github.com/Banzamel/AchajaVA/releases) and run it (SmartScreen: *More info → Run anyway* — the installer is not code-signed yet).
 2. Click through the installer (it follows the language of Windows, which also becomes Achaja's first language — Polish or English); Achaja starts.
-3. The settings window opens: download the speech model, choose the microphone and the output, add project folders, mail accounts and your Home Assistant address — every step except the model can be skipped and changed later.
+3. Achaja opens on its settings wizard: download the speech model, choose the microphone and the output, add project folders, mail accounts and your Home Assistant address — every step except the model can be skipped and changed later.
 4. Save, and Achaja starts listening (later: **Achaja** in the Start menu). Say **"Achaja"**, wait for *"Słucham"* and the beep, then say: *"what time is it in Tokyo — execute"*.
 5. The answer is spoken. From here, just talk.
 
@@ -75,7 +75,7 @@ Keystrokes are written straight into the Claude Code console input buffer (`Writ
 
 ### The Achaja window
 
-Achaja is one native Windows program — **`Achaja.exe`** (Tauri + Rust, the window in React; no Python, no console windows). `Achaja.exe --settings` opens the settings window.
+Achaja is one native Windows program — **`Achaja.exe`** (Tauri + Rust, the window in React; no Python, no console windows). Everything happens in this one window: `Achaja.exe --settings` (or *Settings* in the tray, the ⚙ next to the tabs, *Achaja → Settings…*) opens its Settings view.
 
 - **Conversation** — chat bubbles with your prompts and Achaja's answers (the spoken `[GŁOS]` part marked ♪; *Copy* under every answer, or select text), filled by the session hooks; type into the box and press Enter to send a message without speaking.
 - **Terminal** — the hidden Claude console live, with keys for its choice dialogs (approvals, a new MCP server) when one waits.
@@ -89,7 +89,7 @@ Achaja is one native Windows program — **`Achaja.exe`** (Tauri + Rust, the win
 - Closing the window keeps Achaja in the notification area (tray icon: show, talk, pause, quit); *Quit* closes everything — the hidden session, the mail watcher, phone alerts, speech, agents and background jobs. If the session dies, it restarts and continues the same conversation.
 
 - **Updates** — Achaja checks GitHub Releases (20 s after start, then every 15 minutes, or *Achaja → Check for updates*), downloads a newer signed version in the background and installs it **when you quit Achaja**, or right away with *Install now* (then it starts again). The update keeps your settings and data. Voice: "check for updates", "update yourself" (Achaja asks first).
-- **Settings** — *Achaja → Settings…* opens the settings window, *Edit the configuration file* opens `config.json` in Notepad; saving either one restarts the listener with the new settings.
+- **Settings** — *Achaja → Settings…* opens the Settings view (⚙), *Edit the configuration file* opens `config.json` in Notepad; saving either one restarts the listener with the new settings.
 
 Settings for the window live under `app` in `config.json` (`hide_console`, `show_console_on_prompt`, `tray`, `close_to_tray`, `restart_closed_session`, `update_check`, `update_auto_download`, `update_install_on_quit`, `theme`).
 
@@ -120,13 +120,13 @@ Download `AchajaSetup-<version>.exe` from [Releases](https://github.com/Banzamel
 - replaces an installed Python version of Achaja (0.13 or older), keeping its folder, settings, mail accounts, Home Assistant token, plan and speech model — and Python Achaja updates itself into this version;
 - adds "Achaja" and "Achaja – settings" to the Start menu and a normal uninstaller to *Apps & features* (it asks whether to delete your settings and data too).
 
-On the first start the settings window walks you through the steps: general (language, model, theme, *start with Windows*), voice (microphone and output picked from your devices, Google Cast speaker search), project folders, mail accounts (add / edit / *Test*) and mail rules, Home Assistant address and token. If the speech model of your language is missing it offers to download it (~50 MB). Every step can be changed later.
+On the first start the window opens on the settings wizard and walks you through the steps: general (language, model, theme, *start with Windows*), voice (microphone and output picked from your devices, Google Cast speaker search), project folders, mail accounts (add / edit / *Test*) and mail rules, Home Assistant address and token. If the speech model of your language is missing it offers to download it (~50 MB). Every step can be changed later.
 
 The file is not code-signed, so Windows SmartScreen shows a warning on the first run (*More info → Run anyway*). Unattended install: `AchajaSetup.exe /S` (`/P` shows only the progress).
 
 ### Language
 
-There is **one** `config.json` (in `data\`). It carries a `language` key and a `languages` block with the control words, speech model, voice and acknowledgement phrases for each language; the settings window switches it (and downloads the matching Vosk model). The assistant rules are one file for every language:
+There is **one** `config.json` (in `data\`). It carries a `language` key and a `languages` block with the control words, speech model, voice and acknowledgement phrases for each language; the Settings view switches it (and downloads the matching Vosk model). The assistant rules are one file for every language:
 
 | | Polski (default) | English |
 |---|---|---|
@@ -179,8 +179,8 @@ Achaja ──► achaja agent run <project> ──► claude -p  (cwd = the proj
 ## Home Assistant (optional)
 
 1. In HA add the **Model Context Protocol Server** integration (control: Assist).
-2. Create a long-lived access token and enter it on the *Home Assistant* page of the settings window (it is kept in `data/state/ha_token.txt`, never shown again).
-3. Enter your HA address there too; the settings window writes `data/.mcp.json` for the session. The token reaches the session as `${HA_TOKEN}` and is never stored in a config file.
+2. Create a long-lived access token and enter it on the *Home Assistant* page of Settings (it is kept in `data/state/ha_token.txt`, never shown again).
+3. Enter your HA address there too; Settings write `data/.mcp.json` for the session. The token reaches the session as `${HA_TOKEN}` and is never stored in a config file.
 4. In HA expose the devices Achaja may control (Settings → Voice assistants → Expose).
 
 The MCP integration cannot change an air conditioner's **HVAC mode** (heat, cool, auto, dry, fan only) — after `HassTurnOn` the device picks the mode itself. For that and other services MCP lacks, Achaja uses `achaja.cmd ha` (Home Assistant REST API; address from `config.json` → `home_assistant.url`, token from `state/ha_token.txt`, never printed):
@@ -207,7 +207,7 @@ IMAP server ──IDLE──► achaja.mail.watch (background, one connection pe
                            the rest as numbers ("I removed 30 ads and 2 spam messages"); also at digest_at times
 ```
 
-1. Add the accounts in the settings window (or in `mail.accounts` in `config.json` — an array: host, port, `security` ssl/starttls, user, password; any shared setting can be overridden per account) and turn mail on.
+1. Add the accounts in Settings (or in `mail.accounts` in `config.json` — an array: host, port, `security` ssl/starttls, user, password; any shared setting can be overridden per account) and turn mail on.
 2. Check the connection: `achaja.cmd mail test`.
 3. Start Achaja (the watcher starts with it) or run `achaja mail start`.
 
@@ -293,7 +293,7 @@ Found a security hole? Please [report it privately](https://github.com/Banzamel/
 ## FAQ
 
 **Do I need to know how to code?**
-No. The installer and the settings window do the setup; after that you only talk.
+No. The installer and the settings wizard do the setup; after that you only talk.
 
 **Does it work on macOS or Linux?**
 Not yet — keystroke injection and per-app audio routing use Windows APIs. Pull requests welcome.

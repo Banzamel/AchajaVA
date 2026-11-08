@@ -10,6 +10,7 @@
   "tab.agents": "Agents",
   "tab.plan": "Plan",
   "tab.claude": "Claude",
+  "tab.settings": "Settings",
   "tab.log": "Log",
 
   "btn.talk": "Talk",
@@ -69,6 +70,7 @@
   "chat.empty_title": "Hi, this is Achaja",
   "chat.empty": "Say the wake word or type a message below.",
 
+  "note.setup_needed": "Achaja is not set up yet — open Settings (⚙) to start.",
   "note.config_changed": "Settings changed — restarting the listener.",
   "note.st_closed": "The Claude session was closed — starting it again.",
   "note.wait_note": "Claude is asking for approval — I opened the console, answer there.",
@@ -142,7 +144,7 @@
   "set.save_error": "Could not save: {error}",
   "set.lang_title": "Achaja's language",
   "set.lang_sub": "Conversation language, control words (wake word, “execute”) and voice. The change is saved at once and the listener restarts.",
-  "set.lang_saved": "✓ Language saved — the settings window switches language when reopened",
+  "set.lang_saved": "✓ Language saved — the window now uses the new language",
   "set.lang_missing": "No speech model for this language ({model}). Download it (about 50 MB) to change the language.",
   "set.download": "Download the model",
   "set.downloading": "Downloading the model… {pct}%",

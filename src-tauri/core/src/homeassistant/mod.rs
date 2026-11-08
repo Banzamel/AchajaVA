@@ -1,5 +1,5 @@
 //! Home Assistant: the REST client, the guard for locks and gates, `achaja ha` and the areas
-//! helper, plus the settings window's checks (connection test, phones with the HA app).
+//! helper, plus the Settings view's checks (connection test, phones with the HA app).
 
 pub mod areas;
 pub mod client;

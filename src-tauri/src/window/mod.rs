@@ -1,12 +1,11 @@
-//! Achaja's windows (the main window and the settings window), a start-up error box, the move of
-//! the Python version's data, and what the X button does.
+//! Achaja's one window (settings are a view inside it), a start-up error box, the move of the
+//! Python version's data, and what the X button does.
 
 pub mod fatal;
 pub mod main_window;
 pub mod migrate;
-pub mod settings_window;
 
-use tauri::{Emitter, Manager, Window, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, Window, WindowEvent};
 
 use crate::host::AppState;
 
@@ -24,7 +23,7 @@ pub fn native_frame() -> bool {
 }
 
 /// The main window's X hides it to the tray (app.close_to_tray) or asks the page to confirm
-/// quitting; the settings window just closes (and ends a settings-only run).
+/// quitting.
 pub fn on_event(win: &Window, event: &WindowEvent) {
     let app = win.app_handle();
     let st = app.state::<std::sync::Arc<AppState>>();
@@ -42,7 +41,12 @@ pub fn on_event(win: &Window, event: &WindowEvent) {
                 let _ = app.emit_to(main_window::LABEL, "achaja://quit-ask", ());
             }
         }
-        (settings_window::LABEL, WindowEvent::Destroyed) if st.settings_only => app.exit(0),
         _ => {}
     }
+}
+
+/// Shows the window on its Settings view (the menu, the tray, `Achaja.exe --settings`).
+pub fn open_settings(app: &AppHandle) {
+    main_window::show(app);
+    let _ = app.emit_to(main_window::LABEL, "achaja://open-settings", ());
 }

@@ -48,7 +48,7 @@ FunctionEnd
     ${EndIf}
     FileClose $R6
   ${EndIf}
-  ; The settings window has its own Start menu entry, like before
+  ; Settings have their own Start menu entry, like before (it opens the window on Settings)
   ${If} $LANGUAGE == 1045
     CreateShortCut "$SMPROGRAMS\Achaja - ustawienia.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--settings" "$INSTDIR\${MAINBINARYNAME}.exe" 0
   ${Else}
