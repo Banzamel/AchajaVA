@@ -21,7 +21,7 @@ mod tests {
         let p = Paths::at(&dir.path().join("data"), &res);
         std::fs::create_dir_all(&p.data).unwrap();
         let cfg = json!({"language": "pl", "custom": 1, "voice": {"outputs": {"słuchawki": {"type": "local", "device": ""}}},
-            "mail": {"enabled": true, "accounts": [{"name": "firma", "user": "a@b.pl", "host": "imap.b.pl", "password": "tajne", "smtp_host": "smtp.b.pl"}]}});
+            "mail": {"enabled": true, "accounts": [{"name": "firma", "user": "a@b.pl", "host": "imap.b.pl", "password": "tajne", "smtp_host": "smtp.b.pl"}]}}); // ggignore
         std::fs::write(p.config(), cfg.to_string()).unwrap();
         let mut form = load(&p, &cfg, true);
         assert!(form.mail.accounts[0].has_password && form.mail.accounts[0].password.is_empty());
@@ -33,7 +33,7 @@ mod tests {
         form.ha.token = "tok".into();
         let saved = apply(&p, &form).unwrap();
         assert_eq!(saved["custom"], 1);
-        assert_eq!(saved["mail"]["accounts"][0]["password"], "tajne");
+        assert_eq!(saved["mail"]["accounts"][0]["password"], "tajne"); // ggignore
         assert_eq!(saved["mail"]["accounts"][0]["smtp_host"], "smtp.b.pl");
         assert_eq!(saved["voice"]["default_output"], "głośnik");
         assert_eq!(std::fs::read_to_string(p.ha_token()).unwrap(), "tok");

@@ -3,7 +3,7 @@
 
 pub const CHROMIUM_FULL_VERSION: &str = "143.0.3650.75";
 pub const WSS_URL: &str =
-    "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+    "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4"; // ggignore
 /// The service limits one SSML request; longer texts go in several requests.
 pub const MAX_BYTES: usize = 4096;
 
