@@ -76,7 +76,7 @@ export function ClaudeView({ onNote }: { onNote: (text: string) => void }) {
         ) : (
           <>
             <div className="card-title">{t('claude.sessions')}</div>
-            <div className="muted small">{t('claude.total', { total: human(s.total), sessions: human(sessionsSize) })}</div>
+            <div className="muted small">{s.total ? t('claude.total', { total: human(s.total), sessions: human(sessionsSize) }) : t('claude.loading')}</div>
             <SessionTree />
           </>
         )}

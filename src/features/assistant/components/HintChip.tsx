@@ -10,5 +10,5 @@ export function HintChip() {
   const { key, info } = useStore(useService(AssistantService).store);
   const w = info?.hint_words ?? { end: '', cancel: '', clear: '' };
   const text = t(`hint.${hintKind(key)}`, { wake: t('chat.achaja'), end: w.end, cancel: w.cancel, clear: w.clear });
-  return <div className="hint-chip">{text}</div>;
+  return <div className="hint ellipsis">{text}</div>;
 }

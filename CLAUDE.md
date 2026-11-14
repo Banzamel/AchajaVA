@@ -14,10 +14,10 @@ The same rules in all of the owner's apps.
    export: `PascalCase.tsx` for components and classes, `camelCase.ts` for modules.
 3. **Folders:**
    - `src/app/` — entry (`main.tsx`: index.html is Achaja's one window; Settings are a view in it),
-     service wiring, start-up, the title bar, tabs
+     service wiring, start-up, the title bar, the sections sidebar
    - `src/features/<feature>/` — `components/`, `hooks/`, services, `index.ts` public API:
-     `assistant` (polling, header, avatar, controls, menu), `chat`, `terminal`, `agents`, `plan`,
-     `claudeAccount`, `log`, `settings`
+     `assistant` (polling, header with the mic orb, controls, menu), `chat`, `terminal`, `agents`,
+     `plan`, `claudeAccount`, `today` (the panel next to the conversation), `log`, `settings`
    - `src/shared/{ui,hooks,i18n,lib}` — reusable pieces without feature knowledge (`ui/titlebar` is
      byte-identical in all Banzamel apps — change it in all of them or not at all)
    - `src/core/<domain>/` — pure logic without React or Tauri (state of the assistant, messages,

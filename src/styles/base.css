@@ -1,4 +1,4 @@
-/* Achaja's look: graphite / light grey surfaces, neon only in lines, frames and small accents.
+/* Achaja's look: neutral surfaces (white / graphite) with violet only in the important elements.
    Colours come from the palette as --c-* variables (core/theme/palettes.ts). */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -39,6 +39,11 @@ body {
 .btn-key { padding: 3px 9px; font-size: 13px; }
 .btn-chip { background: transparent !important; border-color: transparent; color: var(--c-muted); font-weight: 600; font-size: 12px; padding: 4px 9px; }
 .btn-chip.selected { background: var(--c-accent-soft) !important; color: var(--c-accent-text); }
+.btn-primary, .btn-pill { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border-radius: 20px; font-weight: 600; }
+.btn-primary { background: var(--c-accent) !important; border-color: var(--c-accent); color: var(--c-on-accent); }
+.btn-primary:hover:not(:disabled) { background: var(--c-accent-hover) !important; }
+.btn-primary:active:not(:disabled) { background: var(--c-accent-pressed) !important; }
+.btn-pill { font-weight: 500; }
 
 .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 8px 10px; }
 .grow-card { flex: 1; min-height: 0; overflow: auto; }

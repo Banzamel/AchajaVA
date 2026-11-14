@@ -41,7 +41,7 @@ export function resetText(iso: string | null | undefined, lang: string, now: Dat
   return pl ? `odnowi się w ${day} ${clock}` : `resets ${day} ${clock}`;
 }
 
-// Usage bar colour: green below 70 %, orange below 90 %, red above.
+// Usage bar colour: calm (the accent) below 70 %, orange below 90 %, red above.
 export function usageColor(pct: number): 'green' | 'orange' | 'red' {
   return pct < 70 ? 'green' : pct < 90 ? 'orange' : 'red';
 }

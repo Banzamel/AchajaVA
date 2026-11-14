@@ -110,7 +110,11 @@ mod tests {
         assert_eq!(e.main_model(), "claude-opus-5-5");
         assert_eq!(e.tokens().total(), 15);
         append(&paths, &e);
-        assert_eq!(read(&paths, 0.0), vec![e]);
+        let back = read(&paths, 0.0);
+        // the time may differ in the last bits: serde_json parses floats fast, not bit-exact
+        assert_eq!(back.len(), 1);
+        assert!((back[0].at - e.at).abs() < 1e-3);
+        assert_eq!(Entry { at: e.at, ..back[0].clone() }, e);
         assert!(read(&paths, now() + 10.0).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
     }

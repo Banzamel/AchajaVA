@@ -6,6 +6,13 @@ GitHub release description.
 
 ## [Unreleased]
 
+### A new look
+
+- **The window is laid out like an app:** sections with icons on the left, the conversation in the middle with the mic, the state, *Talk* and *Pause* above it, and a **Today** panel on the right — the Claude plan's limits, today's runs, estimated cost and response time, what is left in the plan today and the phone alerts. A narrower window hides the panel, then keeps only the icons of the sections. The window opens larger (1240 × 800); the size you set is remembered as before.
+- **Calmer colours:** white and light grey by day, graphite at night, violet only in what matters — the talk button, the selected section, your messages, the bars and the mic. *Auto / light / dark* work as before.
+- **A new icon:** the letter A with the voice's bars in place of its crossbar, in the window, the taskbar, the tray and the installer.
+- The Claude tab says it is loading instead of showing "0 B" while it measures the sessions.
+
 ### Phone alerts from every mailbox, calendar reminders
 
 - **Important mail on the phone works without the Gmail connector.** The mail accounts from *Settings → Mail* now reach the phone on their own, also when the mail watcher is off: Achaja reads new mail without marking it read, sorts it with the same small model and moves nothing. Gmail through the claude.ai connector stays a separate source — use either or both.

@@ -10,6 +10,7 @@ mod check;
 pub mod connector;
 mod gmail;
 mod inbox;
+pub mod overview;
 
 use clap::Subcommand;
 use serde_json::{json, Value};

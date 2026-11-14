@@ -1,28 +1,28 @@
-// Achaja's look: graphite and neon green with cyan, magenta, violet and amber accents, traces like
-// on a processor board; by day the same green on a light, minty background. The same palettes as
-// the Python windows had.
+// Achaja's look: neutral surfaces (white and light grey by day, graphite at night) with violet
+// only in the elements that matter - the talk button, the selected section, the user's bubbles,
+// the bars and the mic. State colours (green, red, orange, cyan) stay soft enough to rest the eyes.
 
 export type Mode = 'light' | 'dark';
 export type Palette = Record<string, string>;
 
 export const PALETTES: Record<Mode, Palette> = {
   light: {
-    bg: '#f2f4f4', surface: '#ffffff', surface2: '#eaeeee', hover: '#e0e6e5', pressed: '#d4dbda',
-    border: '#d2d9d8', text: '#16201d', muted: '#596864', faint: '#99a6a2',
-    accent: '#0a9a5c', accent_hover: '#0cb06a', accent_pressed: '#087a49', on_accent: '#ffffff',
-    accent_soft: '#e4f3ec', accent_text: '#087a49', select: '#c9ebd9',
-    accent_fill: '#f0f8f4', mine: '#e8f4ef', mine_line: '#8fd3b2',
-    green: '#0a9a5c', red: '#d1135a', orange: '#b47500', grey: '#8d9a96', note: '#0a7f9c',
-    cyan: '#0a9fbf', violet: '#7a3fe0', trace: '#9fd6bd', trace2: '#9fd5e2', trace3: '#c9b8ee',
+    bg: '#f3f4f7', surface: '#ffffff', surface2: '#f5f6f9', hover: '#eceef3', pressed: '#e2e5ec',
+    border: '#e3e6ec', text: '#1f2230', muted: '#5f6475', faint: '#9a9fad',
+    accent: '#7c4ddb', accent_hover: '#8b5ce6', accent_pressed: '#6a3fc9', on_accent: '#ffffff',
+    accent_soft: '#efe8fd', accent_text: '#6236c4', select: '#e2d6fb',
+    accent_fill: '#f6f1fe', mine: '#7c4ddb', mine_line: '#7c4ddb', mine_text: '#ffffff',
+    green: '#2e9d6a', red: '#d1435b', orange: '#c27a12', grey: '#8a8f9c', note: '#6236c4',
+    cyan: '#2b8fd6', violet: '#7c4ddb', trace: '#d9cdf5', trace2: '#cfe0f2', trace3: '#e3d6fb',
   },
   dark: {
-    bg: '#0a0c0d', surface: '#111416', surface2: '#161a1d', hover: '#1c2125', pressed: '#22282c',
-    border: '#262d31', text: '#e3e8e6', muted: '#95a29d', faint: '#58645f',
-    accent: '#19e08a', accent_hover: '#4cf0a8', accent_pressed: '#12b06c', on_accent: '#04110b',
-    accent_soft: '#13201b', accent_text: '#62e6ab', select: '#1f3a30',
-    accent_fill: '#0f1a16', mine: '#132019', mine_line: '#1f7a52',
-    green: '#45e39a', red: '#ff4f8b', orange: '#ffc75a', grey: '#5d6864', note: '#6fd8f0',
-    cyan: '#2bd8f5', violet: '#b47cff', trace: '#1f5c43', trace2: '#1b5260', trace3: '#3d3166',
+    bg: '#17191e', surface: '#22252c', surface2: '#1c1e24', hover: '#2a2e36', pressed: '#31353f',
+    border: '#2e323b', text: '#eceef2', muted: '#a3a8b4', faint: '#6b7080',
+    accent: '#7c4ddb', accent_hover: '#8b5ce6', accent_pressed: '#6a3fc9', on_accent: '#ffffff',
+    accent_soft: '#2c2443', accent_text: '#c4a8ff', select: '#3a2f5c',
+    accent_fill: '#241f33', mine: '#6a3fc9', mine_line: '#6a3fc9', mine_text: '#ffffff',
+    green: '#5fd3a0', red: '#ff7a8c', orange: '#f5b259', grey: '#6b7080', note: '#c4a8ff',
+    cyan: '#6bb8f2', violet: '#a57bff', trace: '#3a2f5c', trace2: '#23384d', trace3: '#4a3a75',
   },
 };
 

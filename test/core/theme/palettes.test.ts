@@ -16,7 +16,7 @@ describe('palettes', () => {
   it('has the same keys in both modes and sets the title bar colours', () => {
     expect(Object.keys(PALETTES.light).sort()).toEqual(Object.keys(PALETTES.dark).sort());
     const vars = cssVariables(PALETTES.dark);
-    expect(vars['--c-accent-text']).toBe('#62e6ab');
+    expect(vars['--c-accent-text']).toBe('#c4a8ff');
     expect(vars['--titlebar-bg']).toBe(PALETTES.dark.bg);
   });
 });

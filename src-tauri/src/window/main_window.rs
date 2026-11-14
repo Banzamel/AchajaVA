@@ -10,14 +10,14 @@ use super::native_frame;
 use crate::host::AppState;
 
 pub const LABEL: &str = "main";
-const LAYOUT: u64 = 4; // a new layout ignores geometry saved for the old one
+const LAYOUT: u64 = 5; // a new layout ignores geometry saved for the old one (5: sections + Today panel)
 
 pub fn create(app: &AppHandle, st: &AppState, visible: bool) -> tauri::Result<()> {
     let page = if visible { "index.html" } else { "index.html?minimized=1" };
     let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App(page.into()))
         .title("Achaja")
-        .inner_size(560.0, 820.0)
-        .min_inner_size(380.0, 560.0)
+        .inner_size(1240.0, 800.0)
+        .min_inner_size(420.0, 560.0)
         .decorations(false)
         .shadow(native_frame())
         .visible(false)

@@ -25,6 +25,17 @@ export interface StatRow { key: string; count: number; errors: number; tokens: n
 export interface StatDay { date: string; count: number; tokens: number; cost: number }
 export interface StatTop { kind: string; name: string; session: string; last: number; count: number; tokens: number; cost: number }
 export interface TokenStats { today: StatTotals; week: StatTotals; kinds: StatRow[]; models: StatRow[]; days: StatDay[]; top: StatTop[]; retries: number }
+export interface PhoneOverview {
+  enabled: boolean;
+  gmail: boolean;
+  gmail_status: string;
+  accounts: number;
+  imap: boolean;
+  calendar: boolean;
+  calendar_status: string;
+  last_check: number;
+  pending: number;
+}
 export interface Devices { input: string[]; output: string[] }
 export interface Speaker { name: string; host: string; model: string }
 export interface TrayTexts { show: string; talk: string; pause: string; resume: string; settings: string; quit: string }
@@ -66,6 +77,7 @@ export const commands = {
   mailTest: (row: AccountForm) => invoke<[boolean, string][]>('mail_test', { row }),
   haTest: (url: string, token: string) => invoke<[boolean, string]>('ha_test', { url, token }),
   haPhones: (url: string, token: string) => invoke<string[]>('ha_phones', { url, token }),
+  phoneOverview: () => invoke<PhoneOverview>('phone_overview'),
   phoneConnectors: (refresh: boolean) => invoke<Record<string, string>>('phone_connectors', { refresh }),
   modelStatus: (language: string) => invoke<string | null>('model_status', { language }),
   modelDownload: (name: string) => invoke<void>('model_download', { name }),

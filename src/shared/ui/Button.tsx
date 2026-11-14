@@ -1,8 +1,9 @@
 // A button in Achaja's look: normal, accent (dark inside, neon frame), ghost (no background),
-// key (the small keys of the Terminal tab and the lists).
+// key (the small keys of the Terminal tab and the lists), primary (filled violet, the main
+// action) and pill (a round outlined companion of primary).
 import type { ButtonHTMLAttributes } from 'react';
 
-type Variant = 'normal' | 'accent' | 'ghost' | 'key' | 'chip';
+type Variant = 'normal' | 'accent' | 'ghost' | 'key' | 'chip' | 'primary' | 'pill';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;

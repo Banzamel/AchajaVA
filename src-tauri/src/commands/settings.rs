@@ -78,6 +78,12 @@ pub async fn phone_connectors(st: St<'_>, refresh: bool) -> Result<std::collecti
     tauri::async_runtime::spawn_blocking(move || achaja_core::phone::connector::probe(&paths, refresh)).await.map_err(|e| AppError::msg(e.to_string()))
 }
 
+/// The phone alerts at a glance (the window's Today panel).
+#[tauri::command]
+pub fn phone_overview(st: St<'_>) -> achaja_core::phone::overview::Overview {
+    achaja_core::phone::overview::overview(&st.paths)
+}
+
 #[tauri::command]
 pub async fn ha_phones(st: St<'_>, url: String, token: String) -> Result<Vec<String>> {
     Ok(achaja_core::homeassistant::find_phones(&st.paths, &url, &token).await)

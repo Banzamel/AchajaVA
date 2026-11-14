@@ -1,19 +1,21 @@
-// Achaja's one window: title bar, the head (avatar, state, menu), live text, update banner, Talk
-// and Pause, the hint of voice commands, and the tabs. Settings (and the first-run wizard) take
-// the whole window below the title bar until they are closed.
+// Achaja's one window: the title bar, the sections on the left, the conversation column (the head
+// with the mic, state, Talk/Pause and menu; live text; update banner; the section's page) and,
+// next to the conversation, the Today panel. Settings (and the first-run wizard) take the whole
+// window below the title bar until they are closed.
 import { AgentsView } from '../features/agents/index.ts';
-import { AssistantService, ControlBar, Header, HintChip, LiveBar, UpdateBanner, useQuitRequests } from '../features/assistant/index.ts';
+import { AssistantService, Header, LiveBar, UpdateBanner, useQuitRequests } from '../features/assistant/index.ts';
 import { ChatView } from '../features/chat/index.ts';
 import { ClaudeView } from '../features/claudeAccount/index.ts';
 import { LogView } from '../features/log/index.ts';
 import { PlanView } from '../features/plan/index.ts';
 import { SettingsView } from '../features/settings/index.ts';
 import { TerminalView } from '../features/terminal/index.ts';
+import { TodayPanel } from '../features/today/index.ts';
 import { useService, useStore } from '../shared/hooks/services.tsx';
 import { useT } from '../shared/i18n/useT.ts';
 import { ModalHost } from '../shared/ui/modal/ModalHost.tsx';
 import { AppTitleBar } from './AppTitleBar.tsx';
-import { MainTabs } from './MainTabs.tsx';
+import { Sidebar } from './Sidebar.tsx';
 
 export function MainApp() {
   const t = useT();
@@ -42,15 +44,18 @@ export function MainApp() {
           <SettingsView onClose={closeSettings} />
         </main>
       ) : (
-        <main className="main">
-          <Header />
-          <LiveBar />
-          <UpdateBanner />
-          <ControlBar />
-          <HintChip />
-          <MainTabs tab={s.tab} onTab={(tab) => svc.setTab(tab)} />
-          {views[s.tab]()}
-        </main>
+        <div className="shell">
+          <Sidebar tab={s.tab} onTab={(tab) => svc.setTab(tab)} />
+          <main className="shell-main">
+            <Header />
+            <div className="shell-body">
+              <LiveBar />
+              <UpdateBanner />
+              {views[s.tab]()}
+            </div>
+          </main>
+          {s.tab === 'chat' ? <TodayPanel /> : null}
+        </div>
       )}
       <ModalHost />
     </div>
