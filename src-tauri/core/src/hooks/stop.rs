@@ -71,7 +71,7 @@ pub fn handle(paths: &Paths, data: &Value, session: bool, job: bool) -> Option<V
         state::set_work(paths, "idle", None);
         state::clear(paths, APPROVAL); // the approval lasts one turn
         chat::append(paths, "assistant", message);
-        crate::tokens::transcript::record_turn(paths, data, &cfg.str_or("achaja.effort", ""), !message.trim().is_empty());
+        crate::tokens::transcript::schedule(paths, data, &cfg.str_or("achaja.effort", ""), !message.trim().is_empty());
     }
     let mut text = voice_text(message);
     if text.is_empty() && session {

@@ -53,6 +53,8 @@ pub fn run(paths: &Paths, name: &str) -> i32 {
                 emit(&out);
             }
         }
+        // started by the Stop hook: counts the answered command once it is in the transcript
+        "tokens" => crate::tokens::transcript::record_pending(paths),
         _ => {}
     }
     0

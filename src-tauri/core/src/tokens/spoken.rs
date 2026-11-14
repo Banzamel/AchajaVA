@@ -13,6 +13,18 @@ fn tokens(n: u64) -> String {
     }
 }
 
+/// "1 uruchomienie", "3 uruchomienia", "5 uruchomień" (Polish plural forms).
+pub fn runs(n: u64) -> String {
+    let word = if n == 1 {
+        "uruchomienie"
+    } else if (2..=4).contains(&(n % 10)) && !(12..=14).contains(&(n % 100)) {
+        "uruchomienia"
+    } else {
+        "uruchomień"
+    };
+    format!("{n} {word}")
+}
+
 fn usd(v: f64) -> String {
     format!("{v:.2} USD").replace('.', ",")
 }
@@ -23,7 +35,7 @@ fn sentence(label: &str, t: &Totals) -> String {
     }
     let errors = if t.errors > 0 { format!(", w tym {} z błędem", t.errors) } else { String::new() };
     let time = if t.avg_ms > 0 { format!(", średni czas odpowiedzi {:.0} s", t.avg_ms as f64 / 1000.0) } else { String::new() };
-    format!("{label}: {} uruchomień{errors}, {} tokenów, szacunkowo {} w cenach API{time}.", t.count, tokens(t.tokens.total()), usd(t.cost))
+    format!("{label}: {}{errors}, {} tokenów, szacunkowo {} w cenach API{time}.", runs(t.count), tokens(t.tokens.total()), usd(t.cost))
 }
 
 /// Today, the week and the most expensive item of the week.
@@ -33,6 +45,8 @@ pub fn summary(s: &Stats) -> String {
         let what = match top.kind.as_str() {
             "job" => format!("zadanie w tle {}", top.name),
             "agent" => format!("agent projektu {}", top.name),
+            "mail" => format!("sortowanie poczty ({})", top.name),
+            "phone" => format!("powiadomienia na telefon ({})", top.name),
             _ => "rozmowa z Achają".to_string(),
         };
         parts.push(format!("Najdroższe w tym tygodniu: {what}, {}.", usd(top.cost)));
@@ -66,8 +80,9 @@ mod tests {
         s.today = Totals { count: 3, errors: 1, cost: 1.234, avg_ms: 4200, ..Default::default() };
         s.today.tokens.output = 2_500_000;
         let text = summary(&s);
-        assert!(text.contains("3 uruchomień, w tym 1 z błędem, 2,5 mln tokenów, szacunkowo 1,23 USD"), "{text}");
+        assert!(text.contains("3 uruchomienia, w tym 1 z błędem, 2,5 mln tokenów, szacunkowo 1,23 USD"), "{text}");
         assert!(text.contains("średni czas odpowiedzi 4 s"));
         assert!(details(&s).contains("Dni:"));
+        assert_eq!([runs(1), runs(3), runs(5), runs(12), runs(22)].join("|"), "1 uruchomienie|3 uruchomienia|5 uruchomień|12 uruchomień|22 uruchomienia");
     }
 }

@@ -86,7 +86,7 @@ enum Cmd {
         file: Option<String>,
         text: Vec<String>,
     },
-    /// Hook sesji Claude Code (event, stop, gate, home-guard)
+    /// Hook sesji Claude Code (event, stop, gate, home-guard, tokens)
     #[command(hide = true)]
     Hook { name: String },
     /// Mikrofony i wyjscia audio
