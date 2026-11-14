@@ -1,5 +1,6 @@
 //! Reminders, timed commands and background jobs (`achaja plan ...`).
 
+pub mod job_claude;
 pub mod jobs;
 pub mod schedule;
 pub mod store;

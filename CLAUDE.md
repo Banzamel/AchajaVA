@@ -35,7 +35,8 @@ The same rules in all of the owner's apps.
    playback, outputs, `speak`), `stt/` (Vosk loaded at run time), `tts/` (Edge read-aloud with the
    Sec-MS-GEC v2 token), `cast/` (Google Cast), `console/` (keys into / screen of the hidden Claude
    console), `listener/`, `claude/` (session start, workspace, account, sessions), `hooks/`,
-   `agents/`, `mail/` (+ `watch/`), `gmail`, `phone/`, `homeassistant/`, `plan/` (+ jobs),
+   `agents/`, `tokens/` (token ledger, API-price estimate, statistics, limits), `retry` (back-off for
+   outside calls), `mail/` (+ `watch/`), `gmail`, `phone/`, `homeassistant/`, `plan/` (+ jobs),
    `settings/`, `backup`, `update`, `cli/`. The app crate (`src-tauri/src`) has `commands/`
    (thin wrappers), `host/` (listener thread, console reader, supervisor, shutdown), `window/`,
    `tray.rs`, `updater.rs`, `launch.rs`. One error type (`achaja_core::error::AppError`,

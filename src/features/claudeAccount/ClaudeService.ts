@@ -1,13 +1,14 @@
-// The Claude tab's data: the account and plan usage (refreshed every minute while the tab is
-// shown), the projects with sessions (their sessions loaded when a project is opened), the
+// The Claude tab's data: the account, plan usage and token statistics (refreshed every minute
+// while the tab is shown), the projects with sessions (their sessions loaded when a project is opened), the
 // selection, and deleting / tidying (each confirmed by the user in the window).
-import { commands, errorMessage, type Account, type Project, type Session, type UsageWindow } from '../../platform/index.ts';
+import { commands, errorMessage, type Account, type Project, type Session, type TokenStats, type UsageWindow } from '../../platform/index.ts';
 import { Store } from '../../shared/lib/Store.ts';
 
 export interface ClaudeState {
   account: Account | null;
   usage: UsageWindow[];
   usageError: string;
+  stats: TokenStats | null;
   projects: Project[];
   total: number;
   sessions: Record<string, Session[]>;
@@ -18,7 +19,7 @@ export interface ClaudeState {
 }
 
 export class ClaudeService {
-  readonly store = new Store<ClaudeState>({ account: null, usage: [], usageError: '', projects: [], total: 0, sessions: {}, open: [], selected: [], loadedAt: 0, busy: false });
+  readonly store = new Store<ClaudeState>({ account: null, usage: [], usageError: '', stats: null, projects: [], total: 0, sessions: {}, open: [], selected: [], loadedAt: 0, busy: false });
 
   async refresh(usageOnly = false) {
     if (this.store.get().busy) return;
@@ -30,6 +31,7 @@ export class ClaudeService {
     } catch (e) {
       this.store.set({ usageError: errorMessage(e) });
     }
+    this.store.set({ stats: await commands.claudeStats().catch(() => this.store.get().stats) });
     if (!usageOnly || !this.store.get().projects.length) {
       const p = await commands.claudeProjects().catch(() => ({ projects: [], total: 0 }));
       this.store.set({ projects: p.projects, total: p.total, sessions: {}, open: [], selected: [] });

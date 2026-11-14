@@ -72,12 +72,33 @@
     "_show_window": "Okno konsoli 'Agent: <projekt>' z postępem (w aplikacji okienkowej postęp jest w zakładce Agenci i okno się nie otwiera). / Console progress window; in the app the Agents tab replaces it.",
     "close_window_after_seconds": 300,
     "hang_minutes": 45,
-    "_hang_minutes": "Agent bez żadnego postępu przez tyle minut jest przerywany (0 = nigdy). / An agent with no progress for this many minutes is stopped (0 = never)."
+    "_hang_minutes": "Agent bez żadnego postępu przez tyle minut jest przerywany (0 = nigdy). / An agent with no progress for this many minutes is stopped (0 = never).",
+    "max_budget_usd": 0,
+    "_max_budget_usd": "Jedno uruchomienie agenta jest przerywane po przekroczeniu tylu USD w cenach API (szacunek, 0 = bez limitu). / One agent run is stopped past this many USD at API prices (0 = no limit)."
   },
 
   "jobs": {
     "timeout_minutes": 30,
-    "_timeout_minutes": "Zadanie w tle (plan add --job) dłuższe niż tyle minut jest przerywane. / A background task running longer than this is stopped."
+    "_timeout_minutes": "Zadanie w tle (plan add --job) dłuższe niż tyle minut jest przerywane. / A background task running longer than this is stopped.",
+    "max_budget_usd": 5,
+    "_max_budget_usd": "Jedno uruchomienie zadania jest przerywane po przekroczeniu tylu USD w cenach API (szacunek, 0 = bez limitu). / One run is stopped past this many USD at API prices (an estimate; 0 = no limit).",
+    "retry_minutes": 5,
+    "_retry_minutes": "Zadanie, które padło przez chwilowy błąd (przeciążone API), jest ponawiane raz po tylu minutach (0 = nie ponawiaj). / A run that failed for a passing reason is tried once more after this many minutes (0 = never)."
+  },
+
+  "limits": {
+    "_comment": "Bezpieczniki zużycia planu Claude. Polecenia głosowe nigdy nie są blokowane. / Safeguards for the Claude plan's usage; voice commands are never blocked.",
+    "warn_at": 95,
+    "_warn_at": "Achaja mówi raz, gdy limit 5 godzin lub 7 dni przekroczy tyle procent (0 = bez ostrzeżeń). / Achaja says once when a 5-hour or 7-day window passes this percent (0 = off).",
+    "pause_jobs_at": 95,
+    "_pause_jobs_at": "Cykliczne zadania w tle nie startują, gdy limit 5 godzin lub 7 dni przekroczy tyle procent (0 = zawsze startują). / Recurring background jobs do not start past this percent (0 = always start).",
+    "daily_cost_usd": 0,
+    "_daily_cost_usd": "Cykliczne zadania nie startują, gdy dzisiejszy szacowany koszt przekroczy tyle USD (0 = bez limitu). / Recurring jobs do not start once today's estimated cost passes this (0 = no limit)."
+  },
+
+  "pricing": {
+    "_comment": "Ceny API za milion tokenów (USD) do szacowania kosztu w zakładce Claude; wbudowane są ceny z listopada 2026. Klucz to fragment nazwy modelu (najdłuższe dopasowanie). Zapis do cache: 1,25x (5 min) i 2x (1 h) ceny wejścia, chyba że podasz cache_write_5m / cache_write_1h. / API prices per million tokens (USD) for the cost estimate; November 2026 prices are built in. The key is part of a model id (longest match).",
+    "_example": {"claude-opus-5-5": {"input": 4, "output": 20, "cache_read": 0.2}}
   },
 
   "backup": {

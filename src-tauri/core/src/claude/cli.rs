@@ -17,6 +17,11 @@ pub enum ClaudeCmd {
     Usage,
     /// Konto + limity + miejsce, krotko (do powiedzenia)
     Summary,
+    /// Zuzycie tokenow i szacowany koszt (dzis, 7 dni); --details: tabela per rodzaj, model i dzien
+    Stats {
+        #[arg(long)]
+        details: bool,
+    },
     /// Projekty z sesjami Claude
     Projects,
     /// Sesje projektu
@@ -79,6 +84,10 @@ pub fn run(paths: &Paths, cmd: ClaudeCmd) -> Result<i32> {
             }
         }
         ClaudeCmd::Summary => println!("{}", summary(paths)),
+        ClaudeCmd::Stats { details } => {
+            let s = crate::tokens::stats::load(paths);
+            println!("{}", if details { crate::tokens::spoken::details(&s) } else { crate::tokens::spoken::summary(&s) });
+        }
         ClaudeCmd::Projects => {
             for p in projects() {
                 println!("{:>9}  {:>4} sesji  {}  {}   [{}]", human(p.size), p.sessions, date(p.last), p.path, p.id);

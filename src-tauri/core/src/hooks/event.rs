@@ -30,6 +30,7 @@ pub fn handle(paths: &Paths, data: &Value) {
     match data["hook_event_name"].as_str() {
         Some("UserPromptSubmit") => {
             state::set_work(paths, "busy", None);
+            state::stamp(paths, crate::tokens::transcript::TURN); // the response time and its tokens
             let prompt = data["prompt"].as_str().unwrap_or("");
             chat::append(paths, "user", prompt);
             // the gate: an approval only from the user's prompt, only for this turn

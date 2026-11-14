@@ -16,12 +16,13 @@ pub struct Timers {
     pub last_reminder: f64,
     pub last_plan: f64,
     pub last_backup: f64,
+    pub last_limits: f64,
 }
 
 impl Timers {
     pub fn new() -> Self {
         // the first backup check about a minute after the start
-        Timers { last_sync: 0.0, last_reminder: 0.0, last_plan: 0.0, last_backup: now() - 540.0 }
+        Timers { last_sync: 0.0, last_reminder: 0.0, last_plan: 0.0, last_backup: now() - 540.0, last_limits: now() - 240.0 }
     }
 }
 
@@ -82,6 +83,12 @@ pub fn tick(ctl: &mut Ctl, t: &mut Timers) {
             ctl.bridge.log(&format!("Achaja pracuje od {} s - przypomnienie glosowe.", busy_for as u64));
         }
     }
+    // the plan's usage every 5 minutes, in its own thread (a web request); not into a recording
+    if n - t.last_limits >= 300.0 && ctl.mode == Mode::Idle {
+        t.last_limits = n;
+        let paths = ctl.paths.clone();
+        std::thread::spawn(move || crate::tokens::guard::check_plan(&paths));
+    }
     if n - t.last_plan >= 15.0 {
         t.last_plan = n;
         plan(ctl);
@@ -110,6 +117,12 @@ fn plan(ctl: &mut Ctl) {
                 ctl.bridge.log(&format!("Przypomnienie: {}", due.text));
             }
             "job" => {
+                // a recurring job waits while the plan's limit or the daily cost is used up
+                if let Some(why) = due.item.repeat.as_ref().and_then(|_| crate::tokens::guard::jobs_paused_now(ctl.paths)) {
+                    jobs::skipped(ctl.paths, &due.item, &why);
+                    ctl.bridge.log(&format!("Zadanie w tle '{}' pominiete: {why}", due.item.name.clone().unwrap_or_default()));
+                    continue;
+                }
                 let started = jobs::start(ctl.paths, &due.item);
                 ctl.bridge.log(&format!("Zadanie w tle '{}': {started}", due.item.name.clone().unwrap_or_default()));
             }

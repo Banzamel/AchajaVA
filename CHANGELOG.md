@@ -6,6 +6,16 @@ GitHub release description.
 
 ## [Unreleased]
 
+### Tokens, cost and limits
+
+- **Token statistics in the Claude tab** (*Statistics* next to *Sessions*): today and the last 7 days — commands and jobs, failures, tokens (input, output, cache), the estimated cost and the response time (average and p90), a 14-day cost trend, the split by kind (talking to Achaja, background jobs, project agents) and by model with the session's effort, and the most expensive sessions, jobs and agents of the week. Achaja counts every voice command (from the session's transcript), every background job and every project agent run into `data\state	okens.jsonl`.
+- **The cost is an estimate in USD at API prices** — the Claude plan is a subscription. The November 2026 prices are built in; `pricing` in `config.json` changes or adds them.
+- **Ask by voice:** "how many tokens today?" — the new `achaja claude stats` (`--details` for the full table).
+- **A spoken warning at 95 %** of the plan's 5-hour or 7-day limit (once per window; `limits.warn_at`).
+- **Recurring background jobs wait** while the 5-hour or 7-day limit is past 95 % (`limits.pause_jobs_at`) or today's estimated cost is past `limits.daily_cost_usd` (off by default); the Plan tab shows the skipped run. Voice commands are never blocked.
+- **Spending limit per run:** a background job stops past $5 at API prices (`jobs.max_budget_usd`), a project agent past `agents.max_budget_usd` (off by default).
+- **Another try after a passing failure:** a background job that failed because the API was overloaded runs once more after 5 minutes (`jobs.retry_minutes`); Edge speech, Home Assistant reads and connecting to the mail server try again after a dropped connection or a server error (never a Home Assistant action or sending mail, which could happen twice).
+
 ## [0.14.0] - 2026-11-08
 
 ### Achaja rebuilt as one native Windows program

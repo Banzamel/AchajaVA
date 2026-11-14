@@ -1,0 +1,16 @@
+/* Token statistics in the Claude tab: period tiles, the daily cost bars, tables, the top list. */
+.stats { gap: 8px; }
+.stat-period { display: flex; flex-direction: column; gap: 4px; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
+.stat-tile { display: flex; flex-direction: column; gap: 1px; padding: 6px 8px; border-radius: 8px; background: var(--c-surface2); }
+.stat-tile b { font-size: 16px; }
+.stat-bad { color: var(--c-red); }
+.day-bars { display: flex; align-items: flex-end; gap: 3px; height: 78px; padding-bottom: 14px; }
+.day-bar { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; border-radius: 3px; background: var(--c-surface2); }
+.day-fill { width: 100%; border-radius: 3px; background: var(--c-accent); }
+.day-label { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); font-size: 10px; color: var(--c-muted); white-space: nowrap; }
+.stat-table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.stat-table th { color: var(--c-muted); font-weight: 600; }
+.stat-table th, .stat-table td { padding: 3px 4px; text-align: right; border-bottom: 1px solid var(--c-border); }
+.stat-table th.left, .stat-table td.left { text-align: left; width: 40%; }
+.stat-top { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 2px 0; }

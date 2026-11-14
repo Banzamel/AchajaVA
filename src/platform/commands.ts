@@ -19,6 +19,12 @@ export interface Account { email: string; name: string; org: string; plan: strin
 export interface UsageWindow { key: string; percent: number; resets_at: string | null }
 export interface Project { id: string; path: string; size: number; sessions: number; last: number }
 export interface Session { id: string; title: string; messages: number; size: number; mtime: number; active: boolean; current: boolean; agent: string }
+export interface Tokens { input: number; output: number; cache_read: number; cache_5m: number; cache_1h: number }
+export interface StatTotals { count: number; errors: number; tokens: Tokens; cost: number; avg_ms: number; p90_ms: number }
+export interface StatRow { key: string; count: number; errors: number; tokens: number; cost: number; avg_ms: number }
+export interface StatDay { date: string; count: number; tokens: number; cost: number }
+export interface StatTop { kind: string; name: string; session: string; last: number; count: number; tokens: number; cost: number }
+export interface TokenStats { today: StatTotals; week: StatTotals; kinds: StatRow[]; models: StatRow[]; days: StatDay[]; top: StatTop[]; retries: number }
 export interface Devices { input: string[]; output: string[] }
 export interface Speaker { name: string; host: string; model: string }
 export interface TrayTexts { show: string; talk: string; pause: string; resume: string; settings: string; quit: string }
@@ -46,6 +52,7 @@ export const commands = {
   planRun: (id: number) => invoke<string>('plan_run', { id }),
   claudeAccount: () => invoke<Account>('claude_account'),
   claudeUsage: (cached: boolean) => invoke<UsageWindow[]>('claude_usage', { cached }),
+  claudeStats: () => invoke<TokenStats>('claude_stats'),
   claudeProjects: () => invoke<{ projects: Project[]; total: number }>('claude_projects'),
   claudeSessions: (project: string) => invoke<Session[]>('claude_sessions', { project }),
   claudeDelete: (projects: string[], sessions: [string, string][]) => invoke<{ freed: number; errors: string[] }>('claude_delete', { projects, sessions }),

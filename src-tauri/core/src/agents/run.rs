@@ -2,7 +2,8 @@
 //! .claude, CLAUDE.md and skills), its progress in state\agents\<project>.log (the Agents tab),
 //! and the report printed at the end for Achaja to summarize. Successive orders to the same
 //! project continue its conversation (--resume) unless --new. An agent without any progress for
-//! agents.hang_minutes is stopped.
+//! agents.hang_minutes is stopped; agents.max_budget_usd caps one run at API prices, and the
+//! run's tokens go to the ledger (the Claude tab's statistics).
 
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -41,6 +42,11 @@ pub fn run(paths: &Paths, cfg: &Config, name: &str, folder: &PathBuf, prompt: &s
     let mut cmd = claude_command(&claude);
     cmd.args(["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", &cfg.str_or("agents.permission_mode", "auto")]);
     cmd.args(["--append-system-prompt", &AGENT_PROMPT.replace("{name}", name), "--settings", &protected_settings(paths)]);
+    // a spending limit at API prices (0 = none: a coding agent may need a long run)
+    let budget = cfg.f64_or("agents.max_budget_usd", 0.0);
+    if budget > 0.0 {
+        cmd.args(["--max-budget-usd", &format!("{budget}")]);
+    }
     let resumed = !new && sessions.get(name).and_then(Value::as_str).is_some();
     if let Some(sid) = sessions.get(name).and_then(Value::as_str).filter(|_| resumed) {
         cmd.args(["--resume", sid]);
@@ -122,6 +128,7 @@ pub fn run(paths: &Paths, cfg: &Config, name: &str, folder: &PathBuf, prompt: &s
         sessions.insert(name.to_string(), json!(sid));
         write_map(&dir.join("sessions.json"), &sessions);
     }
+    crate::tokens::ledger::append(paths, &crate::tokens::ledger::Entry::from_result("agent", name, &result, ""));
     let text = report(name, &result);
     write_text(&dir.join(format!("{name}-last.md")), &text)?;
     log.line(&format!("\n{text}"));

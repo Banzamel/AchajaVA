@@ -1,5 +1,7 @@
-// The Claude tab: the signed-in account and plan, usage bars, every Claude Code session on this PC
-// by project, and tidying: Delete (also several), Clean older than 30 days, open the folder.
+// The Claude tab: the signed-in account and plan, usage bars, then either every Claude Code session
+// on this PC by project with tidying (Delete, also several; Clean older than 30 days; open the
+// folder) or the token statistics.
+import { useState } from 'react';
 import { human } from '../../../core/claude/format.ts';
 import { commands } from '../../../platform/index.ts';
 import { useService, useStore } from '../../../shared/hooks/services.tsx';
@@ -9,6 +11,7 @@ import { Button } from '../../../shared/ui/Button.tsx';
 import { ModalService } from '../../../shared/ui/modal/ModalService.ts';
 import { ClaudeService } from '../ClaudeService.ts';
 import { SessionTree } from './SessionTree.tsx';
+import { StatsPanel } from './StatsPanel.tsx';
 import { UsageBars } from './UsageBars.tsx';
 
 const CLEAN_DAYS = 30;
@@ -19,6 +22,7 @@ export function ClaudeView({ onNote }: { onNote: (text: string) => void }) {
   const svc = useService(ClaudeService);
   const modal = useService(ModalService);
   const s = useStore(svc.store);
+  const [view, setView] = useState<'sessions' | 'stats'>('sessions');
   usePoll(() => {
     const st = svc.store.get();
     if (Date.now() - st.loadedAt > 60_000) void svc.refresh(st.projects.length > 0);
@@ -63,16 +67,28 @@ export function ClaudeView({ onNote }: { onNote: (text: string) => void }) {
         <UsageBars windows={s.usage} lang={lang} />
       </div>
       <div className="card grow-card column">
-        <div className="card-title">{t('claude.sessions')}</div>
-        <div className="muted small">{t('claude.total', { total: human(s.total), sessions: human(sessionsSize) })}</div>
-        <SessionTree />
+        <div className="card-head">
+          <Button variant="chip" selected={view === 'sessions'} onClick={() => setView('sessions')}>{t('claude.view_sessions')}</Button>
+          <Button variant="chip" selected={view === 'stats'} onClick={() => setView('stats')}>{t('claude.view_stats')}</Button>
+        </div>
+        {view === 'stats' ? (
+          <StatsPanel stats={s.stats} />
+        ) : (
+          <>
+            <div className="card-title">{t('claude.sessions')}</div>
+            <div className="muted small">{t('claude.total', { total: human(s.total), sessions: human(sessionsSize) })}</div>
+            <SessionTree />
+          </>
+        )}
       </div>
-      <div className="key-row">
-        <Button variant="key" disabled={!n} onClick={() => void remove()}>{t('btn.delete')}{n > 1 ? ` (${n})` : ''}</Button>
-        <Button variant="key" onClick={() => void clean()}>{t('claude.clean', { days: CLEAN_DAYS })}</Button>
-        <span className="grow" />
-        <Button variant="key" onClick={() => void commands.claudeOpenDir(projects[0] ?? null)}>{t('btn.folder')}</Button>
-      </div>
+      {view === 'sessions' ? (
+        <div className="key-row">
+          <Button variant="key" disabled={!n} onClick={() => void remove()}>{t('btn.delete')}{n > 1 ? ` (${n})` : ''}</Button>
+          <Button variant="key" onClick={() => void clean()}>{t('claude.clean', { days: CLEAN_DAYS })}</Button>
+          <span className="grow" />
+          <Button variant="key" onClick={() => void commands.claudeOpenDir(projects[0] ?? null)}>{t('btn.folder')}</Button>
+        </div>
+      ) : null}
     </div>
   );
 }

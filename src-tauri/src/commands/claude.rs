@@ -1,4 +1,4 @@
-//! The Claude tab: the account, plan usage, sessions on this PC and tidying them. Deleting is
+//! The Claude tab: the account, plan usage, token statistics, sessions on this PC and tidying them. Deleting is
 //! the user's own click confirmed in the window, so it does not go through the session's gate.
 
 use std::sync::Arc;
@@ -31,6 +31,13 @@ pub async fn claude_usage(st: St<'_>, cached: bool) -> Result<Vec<UsageWindow>> 
         return Ok(account::cached_usage(&st.paths));
     }
     account::usage(&st.paths, false).await
+}
+
+/// Token use and the estimated cost from state	okens.jsonl (the statistics section).
+#[tauri::command]
+pub async fn claude_stats(st: St<'_>) -> Result<achaja_core::tokens::stats::Stats> {
+    let paths: Paths = st.paths.clone();
+    blocking(move || achaja_core::tokens::stats::load(&paths)).await
 }
 
 #[derive(Serialize)]

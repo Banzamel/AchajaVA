@@ -26,7 +26,7 @@ pub fn run(args: &[String]) {
             assistant::quit, assistant::hide_window, assistant::tray_texts,
             agents::agents_list, agents::agent_log, agents::agent_stop, agents::agent_remove,
             plan::plan_items, plan::plan_detail, plan::plan_remove, plan::plan_run,
-            claude::claude_account, claude::claude_usage, claude::claude_projects, claude::claude_sessions,
+            claude::claude_account, claude::claude_usage, claude::claude_stats, claude::claude_projects, claude::claude_sessions,
             claude::claude_delete, claude::claude_clean_preview, claude::claude_clean, claude::claude_open_dir,
             settings::settings_load, settings::settings_save, settings::audio_devices, settings::cast_discover,
             settings::mail_test, settings::ha_test, settings::ha_phones, settings::model_status, settings::model_download,

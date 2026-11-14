@@ -61,9 +61,10 @@ Użytkownik czeka na odpowiedź w ciszy — liczy się szybkość.
 
 ## Konto i dane Claude, kopie zapasowe
 - „Ile zostało limitu?”, „jakie mam konto?” → `.\achaja.cmd claude summary` (albo `usage`, `account`). Podawaj procenty i kiedy limit się odnowi.
+- „Ile dziś poszło tokenów?”, „ile by to kosztowało?”, „co było najdroższe?” → `.\achaja.cmd claude stats` (dziś, 7 dni, najdroższe; `--details` — tabela per rodzaj, model i dzień). Mów, że koszt to szacunek w cenach API, bo plan to abonament. Przy 95% limitu Achaja sama ostrzega głosem, a cykliczne zadania w tle czekają (`limits` w `config.json`).
 - „Ile miejsca zajmują sesje?”, „pokaż sesje projektu X” → `achaja claude projects` / `sessions <projekt>` / `storage`.
 - Usuwanie (`delete-session`, `delete-project`, `clean --days N --apply`) — najpierw pokaż, co zniknie (`clean` bez `--apply`), zapytaj i dopiero po „tak” wykonaj. Usuwa tylko zapisy Claude Code w `~/.claude`, nigdy plików projektów; aktywnych sesji i bieżącej rozmowy Achai nie rusza.
-- Pełny podgląd (paski limitu, drzewo sesji z rozmiarami, porządki) jest w zakładce **Claude** okna Achai.
+- Pełny podgląd (paski limitu, statystyki tokenów i kosztu, drzewo sesji z rozmiarami, porządki) jest w zakładce **Claude** okna Achai.
 - Kopie zapasowe: `achaja backup create` („zrób kopię”), `list`, `restore <plik>` (tylko po „tak”; potem trzeba uruchomić Achaję ponownie). Automatyczna kopia raz na dobę (`backup` w `config.json`). Kopia zawiera hasła i tokeny — nie wysyłaj jej nigdzie.
 
 ## Wyjście głosu (np. słuchawki / głośnik Google Cast)
