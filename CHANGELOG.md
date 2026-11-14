@@ -6,6 +6,8 @@ GitHub release description.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-14
+
 ### Tokens, cost and limits
 
 - **Token statistics in the Claude tab** (*Statistics* next to *Sessions*): today and the last 7 days — commands and jobs, failures, tokens (input, output, cache), the estimated cost and the response time (average and p90), a 14-day cost trend, the split by kind (talking to Achaja, background jobs, project agents) and by model with the session's effort, and the most expensive sessions, jobs and agents of the week. Achaja counts every voice command (from the session's transcript), every background job and every project agent run into `data\state	okens.jsonl`.
@@ -258,7 +260,8 @@ GitHub release description.
 - **Fewer false wake-ups** — the wake word counts only in finished utterances, with a minimum confidence per word (`wake.wake_confidence`) and spoken on its own (`wake.wake_isolated`).
 - **"Słucham" / "Yes?" after the wake word** (`voice.wake_replies`) — played instantly from a trimmed clip in memory; recording starts only after it, so the reply never ends up in your prompt.
 
-[Unreleased]: https://github.com/Banzamel/AchajaVA/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/Banzamel/AchajaVA/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/Banzamel/AchajaVA/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/Banzamel/AchajaVA/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/Banzamel/AchajaVA/releases/tag/v0.13.2
 [0.13.1]: https://github.com/Banzamel/AchajaVA/releases/tag/v0.13.1

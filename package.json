@@ -1,7 +1,7 @@
 {
   "name": "achaja",
   "productName": "Achaja",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "A hands-free voice assistant for Windows, built on Claude Code: wake word, spoken answers, project agents, mail and Home Assistant.",
   "type": "module",
   "author": "Rafał Polak (Banzamel)",
