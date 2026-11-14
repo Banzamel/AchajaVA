@@ -1,5 +1,5 @@
 // Home Assistant: the address and a long-lived token (never shown; empty keeps the saved one), a
-// connection test, and important mail on the phone through the HA app.
+// connection test, and important mail and calendar reminders on the phone through the HA app.
 import { useState } from 'react';
 import { phoneMode, setPhoneMode, type PhoneMode } from '../../../core/settings/form.ts';
 import { commands, errorMessage } from '../../../platform/index.ts';
@@ -9,6 +9,7 @@ import { Button } from '../../../shared/ui/Button.tsx';
 import { Check } from '../../../shared/ui/Check.tsx';
 import { Field } from '../../../shared/ui/Field.tsx';
 import { SelectField } from '../../../shared/ui/SelectField.tsx';
+import { PhoneSources } from '../components/PhoneSources.tsx';
 import { SettingsService } from '../SettingsService.ts';
 
 export function HaPage() {
@@ -55,6 +56,7 @@ export function HaPage() {
           <Field label={t('set.ph_hours')} value={h.phone.voice_hours} onChange={(voice_hours) => setPhone({ voice_hours })} />
         </div>
         <Check label={t('set.ph_silent')} checked={h.phone.silent_override} onChange={(silent_override) => setPhone({ silent_override })} />
+        <PhoneSources phone={h.phone} accounts={form.mail.accounts.length} onChange={setPhone} />
       </fieldset>
     </div>
   );

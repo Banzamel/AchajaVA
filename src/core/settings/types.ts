@@ -27,7 +27,18 @@ export interface SettingsForm {
     url: string;
     token: string;
     has_token: boolean;
-    phone: { enabled: boolean; notify_service: string; push: boolean; voice: boolean; silent_override: boolean; voice_hours: string };
+    phone: {
+      enabled: boolean;
+      notify_service: string;
+      push: boolean;
+      voice: boolean;
+      silent_override: boolean;
+      voice_hours: string;
+      gmail: boolean;
+      imap: boolean;
+      calendar: boolean;
+      calendar_minutes: number;
+    };
   };
   mail: {
     enabled: boolean;

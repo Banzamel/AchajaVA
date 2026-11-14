@@ -10,7 +10,8 @@
 .side-item.selected { background: var(--c-accent-soft); }
 .side-icon { width: 26px; text-align: center; color: var(--c-accent-text); font-size: 16px; }
 .side-sep { height: 1px; background: var(--c-border); margin: 10px; }
-.settings-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* min-height: 0 lets the page body scroll when the sections are a strip above it (narrow window) */
+.settings-main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .settings-head { padding: 20px 28px 4px; }
 .page-title { font-weight: 600; font-size: 22px; }
 .page-sub { color: var(--c-muted); max-width: 640px; }
@@ -44,7 +45,7 @@
 /* Achaja's window is narrow by default: the sections become a strip above the page. */
 @media (max-width: 760px) {
   .settings.editing { flex-direction: column; }
-  .settings-side { width: auto; flex-direction: row; flex-wrap: wrap; gap: 2px; padding: 8px 10px; }
+  .settings-side { width: auto; flex: none; overflow: visible; flex-direction: row; flex-wrap: wrap; gap: 2px; padding: 8px 10px; }
   .settings-side .side-title, .settings-side .side-band, .settings-side .side-sep { display: none; }
   .side-item { padding: 5px 10px 5px 4px; font-size: 13px; }
   .side-icon { width: 20px; font-size: 14px; }
@@ -54,3 +55,5 @@
   .settings-notice { padding: 0 18px; }
   .wizard-head { padding: 14px 18px 0; }
 }
+.phone-sources { margin-top: 8px; gap: 8px; }
+.conn-ok { color: var(--c-green); }

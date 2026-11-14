@@ -95,6 +95,10 @@ fn apply_ha(paths: &Paths, cfg: &mut Value, f: &SettingsForm) -> Result<()> {
         ("voice", json!(p.voice)),
         ("media_stream", json!(if p.silent_override { "alarm_stream_max" } else { "" })),
         ("voice_hours", json!(p.voice_hours.trim())),
+        ("gmail", json!(p.gmail)),
+        ("imap", json!(p.imap)),
+        ("calendar", json!(p.calendar)),
+        ("calendar_minutes", json!(if p.calendar_minutes > 0.0 { p.calendar_minutes.clamp(1.0, 120.0) } else { 15.0 })),
     ] {
         phone.insert(k.into(), v);
     }

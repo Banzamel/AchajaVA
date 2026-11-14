@@ -35,6 +35,14 @@ pub struct PhoneForm {
     pub voice: bool,
     pub silent_override: bool,
     pub voice_hours: String,
+    #[serde(default)]
+    pub gmail: bool,
+    #[serde(default)]
+    pub imap: bool,
+    #[serde(default)]
+    pub calendar: bool,
+    #[serde(default)]
+    pub calendar_minutes: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -158,6 +166,10 @@ pub fn load(paths: &Paths, raw: &Value, editing: bool) -> SettingsForm {
                 voice: cfg.bool_or("phone_alerts.voice", true),
                 silent_override: !cfg.str_or("phone_alerts.media_stream", "alarm_stream_max").is_empty(),
                 voice_hours: cfg.str_or("phone_alerts.voice_hours", "08:00-22:00"),
+                gmail: cfg.bool_or("phone_alerts.gmail", true),
+                imap: cfg.bool_or("phone_alerts.imap", true),
+                calendar: cfg.bool_or("phone_alerts.calendar", false),
+                calendar_minutes: cfg.f64_or("phone_alerts.calendar_minutes", 15.0),
             },
         },
         mail: MailForm {

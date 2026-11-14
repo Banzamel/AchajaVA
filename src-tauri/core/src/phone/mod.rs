@@ -1,10 +1,15 @@
-//! Important mail on the phone: a push and a spoken message through the Home Assistant app.
-//! Gmail is read ONLY through the Claude Gmail connector (a separate `claude -p` with two
-//! read-only tools); without the connector nothing happens. The optional IMAP accounts' important
-//! mail (from the mail watcher) goes to the phone too. The text on the phone is built here from
-//! the model's JSON fields, with links, addresses and long numbers removed.
+//! Important mail and calendar reminders on the phone: a push and a spoken message through the
+//! Home Assistant app. Two independent mail sources: Gmail through the claude.ai Gmail connector
+//! (a separate `claude -p` with two read-only tools) and the mail accounts from the settings
+//! (IMAP, read-only) - either works without the other. Calendar reminders come only through the
+//! Google Calendar connector. The text on the phone is built here from the model's JSON fields,
+//! with links, addresses and long numbers removed.
 
+mod calendar;
 mod check;
+pub mod connector;
+mod gmail;
+mod inbox;
 
 use clap::Subcommand;
 use serde_json::{json, Value};
@@ -47,6 +52,11 @@ pub struct Settings {
     pub model: String,
     pub imap: bool,
     pub media_stream: String,
+    /// Gmail through the claude.ai connector.
+    pub gmail: bool,
+    /// Reminders before Google Calendar events (connector only), calendar_minutes before.
+    pub calendar: bool,
+    pub calendar_minutes: f64,
 }
 
 pub fn settings(cfg: &Config) -> Settings {
@@ -61,6 +71,9 @@ pub fn settings(cfg: &Config) -> Settings {
         model: cfg.str_or("phone_alerts.model", "haiku"),
         imap: cfg.bool_or("phone_alerts.imap", true),
         media_stream: cfg.str_or("phone_alerts.media_stream", "alarm_stream_max"),
+        gmail: cfg.bool_or("phone_alerts.gmail", true),
+        calendar: cfg.bool_or("phone_alerts.calendar", false),
+        calendar_minutes: cfg.f64_or("phone_alerts.calendar_minutes", 15.0).clamp(1.0, 120.0),
     }
 }
 

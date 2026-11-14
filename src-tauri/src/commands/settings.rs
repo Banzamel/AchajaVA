@@ -71,6 +71,13 @@ pub async fn ha_test(st: St<'_>, url: String, token: String) -> Result<(bool, St
     Ok(achaja_core::homeassistant::test(&st.paths, &url, &token).await)
 }
 
+/// The claude.ai connectors (gmail, calendar) and their status, for the phone alerts settings.
+#[tauri::command]
+pub async fn phone_connectors(st: St<'_>, refresh: bool) -> Result<std::collections::BTreeMap<String, String>> {
+    let paths = st.paths.clone();
+    tauri::async_runtime::spawn_blocking(move || achaja_core::phone::connector::probe(&paths, refresh)).await.map_err(|e| AppError::msg(e.to_string()))
+}
+
 #[tauri::command]
 pub async fn ha_phones(st: St<'_>, url: String, token: String) -> Result<Vec<String>> {
     Ok(achaja_core::homeassistant::find_phones(&st.paths, &url, &token).await)

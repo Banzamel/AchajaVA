@@ -50,7 +50,8 @@ pub fn describe(key: &str, m: &Mail) -> String {
     lines.join("\n")
 }
 
-pub fn classify(items: &[(String, Mail)], a: &Account, lang: &str, log: &dyn Fn(&str)) -> HashMap<String, ModelVerdict> {
+/// `kind` names the work in the token ledger: "mail" (the watcher) or "phone" (phone alerts).
+pub fn classify(items: &[(String, Mail)], a: &Account, lang: &str, kind: &str, log: &dyn Fn(&str)) -> HashMap<String, ModelVerdict> {
     let mut out = HashMap::new();
     if items.is_empty() {
         return out;
@@ -81,6 +82,9 @@ pub fn classify(items: &[(String, Mail)], a: &Account, lang: &str, log: &dyn Fn(
             return out;
         }
     };
+    if data.is_object() {
+        crate::tokens::ledger::append(crate::paths::paths(), &crate::tokens::ledger::Entry::from_result(kind, &a.name, &data, ""));
+    }
     let result = match &data["structured_output"] {
         Value::Null => serde_json::from_str(data["result"].as_str().unwrap_or("{}")).unwrap_or(Value::Null),
         v => v.clone(),

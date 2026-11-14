@@ -4,7 +4,7 @@
 //! instance per computer. Log: state\mail\watch.log, results: state\mail\messages.json.
 
 pub mod announce;
-mod classify;
+pub mod classify;
 mod handle;
 mod rules;
 mod session;

@@ -7,7 +7,7 @@ const form = (): SettingsForm => ({
   app: { update_check: true, update_install_on_quit: true, close_to_tray: true, show_console_on_prompt: false },
   voice: { microphone: '', local_device: 'JBL', rate: '+15%', cast_enabled: true, cast_name: 'Kuchnia', cast_host: '10.0.0.5', default_cast: false },
   project_roots: ['C:\\projekty'],
-  ha: { enabled: false, url: '', token: '', has_token: false, phone: { enabled: false, notify_service: '', push: true, voice: true, silent_override: true, voice_hours: '' } },
+  ha: { enabled: false, url: '', token: '', has_token: false, phone: { enabled: false, notify_service: '', push: true, voice: true, silent_override: true, voice_hours: '', gmail: true, imap: true, calendar: false, calendar_minutes: 15 } },
   mail: { enabled: true, important_hint: '', quiet_hours: '', delete_after_days: 7, important_senders: '', ignored_senders: '', digest_at: '', announce: [], accounts: [{ ...newAccount(), name: 'firma', user: 'a@b.pl', host: 'h' }] },
   autostart: false,
   editing: false,

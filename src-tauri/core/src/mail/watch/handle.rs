@@ -48,7 +48,7 @@ pub async fn handle(ctx: &Ctx, a: &Account, c: &mut Imap, inbox: &str, uids: &[u
         }
         parsed.push((uid, m));
     }
-    let verdicts = tokio::task::block_in_place(|| classify(&for_model, a, ctx.lang(), &|t| ctx.log(t)));
+    let verdicts = tokio::task::block_in_place(|| classify(&for_model, a, ctx.lang(), "mail", &|t| ctx.log(t)));
     let mut entries = Vec::new();
     let mut groups: BTreeMap<String, Vec<u32>> = BTreeMap::new();
     for (uid, m) in &parsed {

@@ -115,7 +115,7 @@
   },
 
   "phone_alerts": {
-    "_comment": "Opcjonalne: ważna poczta na telefon (push i głos przez aplikację mobilną Home Assistant). Gmail czyta tylko konektor Gmail z konta Claude; bez niego funkcja nic nie robi. / Optional: important mail on your phone via the Home Assistant app. Gmail is read only through the Claude Gmail connector; without it this does nothing.",
+    "_comment": "Opcjonalne: ważna poczta i przypomnienia z kalendarza na telefon (push i głos przez aplikację mobilną Home Assistant). Źródła działają niezależnie: Gmail przez konektor z konta Claude i konta pocztowe z sekcji 'mail'. / Optional: important mail and calendar reminders on your phone via the Home Assistant app; Gmail (Claude connector) and the 'mail' accounts work independently.",
     "enabled": false,
     "notify_service": "",
     "_notify_service": "Usługa HA, np. mobile_app_moj_telefon. / HA service, e.g. mobile_app_my_phone.",
@@ -127,8 +127,13 @@
     "media_stream": "alarm_stream_max",
     "_media_stream": "alarm_stream_max czyta też przy wyciszonym telefonie, na pełnej głośności alarmu; alarm_stream na bieżącej głośności alarmu; puste = strumień powiadomień. / alarm_stream_max speaks even when muted, at full alarm volume; alarm_stream uses the current alarm volume; empty = notification stream.",
     "model": "haiku",
+    "gmail": true,
+    "_gmail": "Gmail przez konektor Gmail z konta Claude (bez konektora pomijany). / Gmail through the Claude Gmail connector (skipped without it).",
     "imap": true,
-    "_imap": "Jeśli skonfigurowano mail.accounts, ich ważne maile też trafiają na telefon. / If mail.accounts is set, their important mail goes to the phone too."
+    "_imap": "Ważne maile z kont w mail.accounts (też gdy nasłuch poczty jest wyłączony: tylko odczyt, nic nie jest przenoszone). / Important mail of mail.accounts, also with the watcher off (read-only).",
+    "calendar": false,
+    "calendar_minutes": 15,
+    "_calendar": "Przypomnienie tyle minut przed wydarzeniem z Kalendarza Google; tylko przez konektor Google Calendar z konta Claude. / A reminder this many minutes before a Google Calendar event; only through the Claude Google Calendar connector."
   },
 
   "mail": {

@@ -6,6 +6,15 @@ GitHub release description.
 
 ## [Unreleased]
 
+### Phone alerts from every mailbox, calendar reminders
+
+- **Important mail on the phone works without the Gmail connector.** The mail accounts from *Settings → Mail* now reach the phone on their own, also when the mail watcher is off: Achaja reads new mail without marking it read, sorts it with the same small model and moves nothing. Gmail through the claude.ai connector stays a separate source — use either or both.
+- **Google Calendar reminders on the phone** a set number of minutes before each event (15 by default), through the claude.ai Google Calendar connector. Without the connector the option is greyed out in the settings, which now show the status of both connectors.
+- **Mail work is counted too:** sorting mail and the phone checks of Gmail, the mailboxes and the calendar appear in the token statistics.
+- Fixed: a voice command's tokens were not recorded (the Stop hook ran before Claude Code had written the answer). The response time now comes from Claude Code's own record of the turn.
+- Fixed: "1 uruchomień" in the spoken statistics.
+- Fixed: in the narrow window the settings page did not scroll and its Close / Save buttons slid out of view.
+
 ## [0.15.0] - 2026-11-14
 
 ### Tokens, cost and limits

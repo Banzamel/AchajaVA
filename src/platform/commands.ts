@@ -66,6 +66,7 @@ export const commands = {
   mailTest: (row: AccountForm) => invoke<[boolean, string][]>('mail_test', { row }),
   haTest: (url: string, token: string) => invoke<[boolean, string]>('ha_test', { url, token }),
   haPhones: (url: string, token: string) => invoke<string[]>('ha_phones', { url, token }),
+  phoneConnectors: (refresh: boolean) => invoke<Record<string, string>>('phone_connectors', { refresh }),
   modelStatus: (language: string) => invoke<string | null>('model_status', { language }),
   modelDownload: (name: string) => invoke<void>('model_download', { name }),
   editConfig: () => invoke<void>('edit_config'),
