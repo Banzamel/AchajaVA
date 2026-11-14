@@ -15,6 +15,7 @@ use tokio::net::TcpStream;
 use super::accounts::Account;
 use super::utf7;
 use crate::error::{AppError, Result};
+use crate::retry::Fail;
 
 pub trait Stream: AsyncRead + AsyncWrite + Unpin + Send + std::fmt::Debug {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send + std::fmt::Debug> Stream for T {}
@@ -46,10 +47,13 @@ pub struct Imap {
 
 pub async fn connect(a: &Account) -> Result<Imap> {
     let (host, verify) = (a.host(), a.b("verify_tls", true));
-    let tcp = tokio::time::timeout(Duration::from_secs(30), TcpStream::connect((host.as_str(), a.port())))
-        .await
-        .map_err(|_| err(format!("{host}: timeout")))?
-        .map_err(err)?;
+    // connecting is tried again (a waking server, a dropped Wi-Fi); a refused login is not
+    let h = host.as_str();
+    let tcp = crate::retry::run(&crate::retry::NETWORK, move || async move {
+        let connect = tokio::time::timeout(Duration::from_secs(30), TcpStream::connect((h, a.port()))).await;
+        connect.map_err(|_| Fail::Transient(err(format!("{h}: timeout"))))?.map_err(|e| Fail::Transient(err(e)))
+    })
+    .await?;
     let stream: Box<dyn Stream> = if a.security() == "ssl" {
         let mut client = async_imap::Client::new(tls(&host, verify, tcp).await?);
         client.read_response().await.map_err(err)?; // greeting

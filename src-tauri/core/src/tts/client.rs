@@ -1,6 +1,7 @@
 //! One synthesis over the Edge read-aloud websocket: connect with the DRM token, send the speech
 //! config and the SSML, collect the MP3 frames until "turn.end". A rejected handshake (403) with
-//! the server's Date corrects the clock skew once and tries again, like edge-tts.
+//! the server's Date corrects the clock skew once and tries again, like edge-tts; a dropped
+//! connection is tried again with a short back-off.
 
 use std::sync::atomic::{AtomicI64, Ordering};
 
@@ -11,6 +12,7 @@ use tokio_tungstenite::tungstenite::{Error as WsError, Message};
 
 use super::{drm, protocol};
 use crate::error::{AppError, Result};
+use crate::retry::{self, Fail};
 
 static CLOCK_SKEW: AtomicI64 = AtomicI64::new(0);
 
@@ -106,7 +108,13 @@ pub async fn synthesize(text: &str, voice: &str, rate: &str) -> Result<Vec<u8>> 
     crate::runtime::install_tls();
     let mut out = Vec::new();
     for part in protocol::split(&protocol::prepare_text(text), protocol::MAX_BYTES) {
-        out.extend(synth_part(&part, voice, rate).await?);
+        // a dropped connection is tried again; no audio means a wrong voice name, which stays wrong
+        let part = part.as_str();
+        let audio = retry::run(&retry::NETWORK, move || async move {
+            synth_part(part, voice, rate).await.map_err(|e| if e.to_string().contains("no audio") { Fail::Fatal(e) } else { Fail::Transient(e) })
+        })
+        .await?;
+        out.extend(audio);
     }
     Ok(out)
 }

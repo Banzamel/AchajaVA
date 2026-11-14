@@ -8,6 +8,7 @@ use crate::config;
 use crate::error::{AppError, Result};
 use crate::json::{read_text, read_value};
 use crate::paths::Paths;
+use crate::retry::{self, Fail};
 use crate::text::fold;
 
 pub struct Ha {
@@ -50,17 +51,27 @@ impl Ha {
     }
 
     pub async fn request(&self, method: reqwest::Method, path: &str, body: Option<&Value>) -> Result<Value> {
-        let mut req = self.http.request(method.clone(), format!("{}{path}", self.url)).bearer_auth(&self.token);
-        if let Some(b) = body {
-            req = req.json(b);
-        }
-        let resp = req.send().await.map_err(|e| ha_err(self.safe(&format!("Brak polaczenia z Home Assistant ({}): {e}", self.url))))?;
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        if !status.is_success() {
-            let detail: String = text.chars().take(300).collect();
-            return Err(ha_err(self.safe(&format!("Home Assistant: {method} {path} -> HTTP {} {detail}", status.as_u16()))));
-        }
+        // reads are tried again after a dropped connection or a 5xx; a service call never is,
+        // so a light is not switched twice
+        let read = method == reqwest::Method::GET || path == "/api/template";
+        let policy = if read { &retry::NETWORK } else { &retry::ONCE };
+        let method = &method;
+        let text = retry::run(policy, move || async move {
+            let mut req = self.http.request(method.clone(), format!("{}{path}", self.url)).bearer_auth(&self.token);
+            if let Some(b) = body {
+                req = req.json(b);
+            }
+            let resp = req.send().await.map_err(|e| Fail::Transient(ha_err(self.safe(&format!("Brak polaczenia z Home Assistant ({}): {e}", self.url)))))?;
+            let status = resp.status();
+            let text = resp.text().await.unwrap_or_default();
+            if !status.is_success() {
+                let detail: String = text.chars().take(300).collect();
+                let e = ha_err(self.safe(&format!("Home Assistant: {method} {path} -> HTTP {} {detail}", status.as_u16())));
+                return Err(if retry::transient_status(status.as_u16()) { Fail::Transient(e) } else { Fail::Fatal(e) });
+            }
+            Ok(text)
+        })
+        .await?;
         if text.is_empty() {
             return Ok(Value::Null);
         }
