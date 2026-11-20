@@ -6,6 +6,9 @@ GitHub release description.
 
 ## [Unreleased]
 
+- **Project agents reach what Achaja reaches:** Claude in Chrome, the claude.ai connectors (Gmail, Calendar, Drive…) and your plugins, connected before the agent's first step; the agent also starts with Remote Control as "Agent: <project>". Turn Chrome or Remote Control off with `agents.chrome` / `agents.remote_control` in `config.json`.
+- Fixed: when a background agent finished, Claude Code's notice about it (`<task-notification>…`) appeared in the conversation as if you had said it, and Achaja answered it with "I'm on it". It is now a short note ("Agent vector has finished.") and nothing is said aloud.
+
 ## [0.16.0] - 2026-11-14
 
 ### A new look

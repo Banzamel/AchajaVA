@@ -6,6 +6,7 @@
 pub mod event;
 pub mod gate;
 pub mod home_guard;
+pub mod injected;
 pub mod stop;
 pub mod yes;
 

@@ -1,11 +1,12 @@
 //! UserPromptSubmit and Notification hooks (only in the Achaja session). A prompt: the state
 //! becomes "busy", the gate's approval for this turn is written, and a short "I'm on it" is
-//! spoken. A notification that Claude waits at the computer: it is said aloud and the state
+//! spoken (a background task's notification only becomes busy and a note in the chat). A notification that Claude waits at the computer: it is said aloud and the state
 //! becomes "waiting" (the listener then does not say "still working").
 
 use rand::seq::IndexedRandom;
 use serde_json::{json, Value};
 
+use super::injected;
 use super::yes::is_yes;
 use crate::chat;
 use crate::config;
@@ -32,6 +33,13 @@ pub fn handle(paths: &Paths, data: &Value) {
             state::set_work(paths, "busy", None);
             state::stamp(paths, crate::tokens::transcript::TURN); // the response time and its tokens
             let prompt = data["prompt"].as_str().unwrap_or("");
+            // a background command's end: Claude works on, but the user said nothing
+            if injected::is_task_notification(prompt) {
+                for note in injected::notes(prompt, cfg.lang2()) {
+                    chat::append(paths, "note", &note);
+                }
+                return;
+            }
             chat::append(paths, "user", prompt);
             // the gate: an approval only from the user's prompt, only for this turn
             let yes = is_yes(prompt, &cfg.strs("wake.end"));

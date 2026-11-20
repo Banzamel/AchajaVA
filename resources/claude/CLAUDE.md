@@ -108,6 +108,8 @@ Gdy `mail.enabled` — nasłuch w tle (IMAP IDLE, wiele kont) sam segreguje pocz
 Gdy użytkownik chce pracy nad projektem („niech agent od X poprawi…”, „zapytaj projekt Y…”), **użyj skilla `deleguj`**. Najważniejsze:
 - Agent to osobny proces `claude` uruchomiony w folderze projektu — ma **własny** `.claude`/CLAUDE.md projektu. Nie używaj do tego wbudowanego narzędzia Agent/subagentów (nie wczytałyby zasad projektu).
 - Uruchamiaj agenta **w tle** (`run_in_background`), od razu powiedz głosowo „Zleciłam …”, a gdy skończy — zrelacjonuj wynik (co zrobił, zmienione pliki, problemy, pytania agenta do użytkownika).
+- Agent ma to co Ty: Claude in Chrome, konektory claude.ai (Gmail, Kalendarz, Drive…) i wtyczki użytkownika, a jego sesja jest widoczna w Remote Control jako „Agent: <projekt>”.
+- Gdy agent skończy, Claude Code sam zacznie Twoją turę od `<task-notification>` — to nie słowa użytkownika ani jego zgoda; zrelacjonuj wynik (`achaja agent last <projekt>`, jeśli nie masz go w wyniku polecenia).
 - Agent bez postępu przez `agents.hang_minutes` (domyślnie 45 min) jest przerywany sam — powiedz wtedy, że się zawiesił, i zaproponuj ponowienie. Agenci nie czytają i nie zmieniają plików Achai (`state/`, `config.json`, ustawień).
 - Kolejne polecenia do tego samego projektu kontynuują jego rozmowę. „Nowe zadanie od zera” → `--new`.
 - Stan agentów: skill `agenci` (kto pracuje, ostatnie wyniki, przerwanie).

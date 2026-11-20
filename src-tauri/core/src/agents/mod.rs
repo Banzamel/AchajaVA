@@ -1,6 +1,7 @@
 //! Project agents: Claude started in a project's folder with that project's own rules, its
 //! progress in the Agents tab and its report back to Achaja (`achaja agent ...`).
 
+pub mod args;
 pub mod resolve;
 pub mod run;
 pub mod stream;

@@ -16,6 +16,8 @@ describe('messages', () => {
     const ai = toMessage({ role: 'assistant', text: 'Tekst\n[GŁOS] Tak.', at: 0 });
     expect([ai.role, ai.body, ai.voice]).toEqual(['ai', 'Tekst', 'Tak.']);
     expect(copyText(ai)).toBe('Tekst\n\nTak.');
+    const note = toMessage({ role: 'note', text: 'Agent vector skończył pracę.', at: 0 });
+    expect(note).toEqual({ kind: 'note', body: 'Agent vector skończył pracę.' });
   });
 
   it('keeps the newest 200 once past 300 and skips empty ones', () => {

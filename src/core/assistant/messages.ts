@@ -1,5 +1,6 @@
 // Chat lines from state\chat.jsonl turned into what the conversation shows: the user's prompts
-// on the right; Achaja's answers on the left, split into the text and the spoken [GŁOS] part.
+// on the right; Achaja's answers on the left, split into the text and the spoken [GŁOS] part;
+// notes (a background task ended) in between.
 import type { ChatLine, Message } from './types.ts';
 
 const MARKER = /^\s*\[(?:G[ŁL]OS|VOICE)\]\s*:?\s*/gim;
@@ -19,6 +20,8 @@ export function clock(at: number): string {
 
 export function toMessage(line: ChatLine): Message {
   const time = clock(line.at || Date.now() / 1000);
+  // e.g. "Agent vector finished": Claude Code's own turn, not something the user said
+  if (line.role === 'note') return { kind: 'note', body: line.text.trim() };
   if (line.role === 'user') return { kind: 'msg', role: 'user', time, body: line.text.trim(), voice: '' };
   const { body, voice } = splitVoice(line.text);
   return { kind: 'msg', role: 'ai', time, body, voice };

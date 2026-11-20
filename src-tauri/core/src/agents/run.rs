@@ -42,6 +42,7 @@ pub fn run(paths: &Paths, cfg: &Config, name: &str, folder: &PathBuf, prompt: &s
     let mut cmd = claude_command(&claude);
     cmd.args(["-p", "--output-format", "stream-json", "--verbose", "--permission-mode", &cfg.str_or("agents.permission_mode", "auto")]);
     cmd.args(["--append-system-prompt", &AGENT_PROMPT.replace("{name}", name), "--settings", &protected_settings(paths)]);
+    cmd.args(super::args::reach_args(cfg, name)).envs(super::args::ENV.iter().copied());
     // a spending limit at API prices (0 = none: a coding agent may need a long run)
     let budget = cfg.f64_or("agents.max_budget_usd", 0.0);
     if budget > 0.0 {
