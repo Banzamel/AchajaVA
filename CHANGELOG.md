@@ -6,6 +6,8 @@ GitHub release description.
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-11-20
+
 - **Project agents reach what Achaja reaches:** Claude in Chrome, the claude.ai connectors (Gmail, Calendar, Drive…) and your plugins, connected before the agent's first step; the agent also starts with Remote Control as "Agent: <project>". Turn Chrome or Remote Control off with `agents.chrome` / `agents.remote_control` in `config.json`.
 - Fixed: when a background agent finished, Claude Code's notice about it (`<task-notification>…`) appeared in the conversation as if you had said it, and Achaja answered it with "I'm on it". It is now a short note ("Agent vector has finished.") and nothing is said aloud.
 
@@ -281,7 +283,8 @@ GitHub release description.
 - **Fewer false wake-ups** — the wake word counts only in finished utterances, with a minimum confidence per word (`wake.wake_confidence`) and spoken on its own (`wake.wake_isolated`).
 - **"Słucham" / "Yes?" after the wake word** (`voice.wake_replies`) — played instantly from a trimmed clip in memory; recording starts only after it, so the reply never ends up in your prompt.
 
-[Unreleased]: https://github.com/Banzamel/AchajaVA/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/Banzamel/AchajaVA/compare/v0.16.1...HEAD
+[0.16.1]: https://github.com/Banzamel/AchajaVA/compare/v0.16.0...v0.16.1
 [0.16.0]: https://github.com/Banzamel/AchajaVA/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/Banzamel/AchajaVA/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/Banzamel/AchajaVA/compare/v0.13.2...v0.14.0
